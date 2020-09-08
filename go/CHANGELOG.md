@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [0.0.1 - 2020-09-08]
 
+* Added basic_types.go on Go basic types
 * Added hello.go
 * Added go/.gitignore file to ignore build folder
 * Added initial commit
