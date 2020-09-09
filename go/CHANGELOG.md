@@ -38,6 +38,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 ## [0.0.1 - 2020-09-08]
 
+* Added methods.go on Go methods
 * Added functions.go on Go function values and closures
 * Added maps.go on Go maps
 * Added structs.go on Go structs
