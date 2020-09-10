@@ -13,6 +13,19 @@ var (
 	cache URLShortener = URLShortener{shorts: make(map[string]*urlInfo)}
 )
 
+// helpers
+
+func shorten(longURL string) string {
+	hasher := sha1.New()
+
+	hasher.Write([]byte(longURL))
+	sum := hasher.Sum(nil)
+
+	shortURL := fmt.Sprintf("%x", sum)[:6]
+
+	return shortURL
+}
+
 // URLShortener URL shortener server data structure
 type URLShortener struct {
 	mux    sync.Mutex
@@ -75,16 +88,7 @@ func (cache *URLShortener) getStatistics() string {
 	return statistics
 }
 
-func shorten(longURL string) string {
-	hasher := sha1.New()
-
-	hasher.Write([]byte(longURL))
-	sum := hasher.Sum(nil)
-
-	shortURL := fmt.Sprintf("%x", sum)[:6]
-
-	return shortURL
-}
+// handlers
 
 func shortenerHandler(w http.ResponseWriter, r *http.Request) {
 	longURL := r.URL.Path[len("/shorten/"):]
