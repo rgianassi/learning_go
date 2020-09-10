@@ -87,13 +87,10 @@ func (c *URLShortener) getStatistics() string {
 	succeededRedirects := fmt.Sprintf("Succeeded redirects: %v", statistics.succeededRedirects)
 	failedRedirects := fmt.Sprintf("Failed redirects: %v", statistics.failedRedirects)
 
-	handlerCalls := make([]string, len(statistics.handlerCalls))
-	i := 0
+	handlerCalls := make([]string, 0, len(statistics.handlerCalls))
 
 	for handlerURL, counter := range statistics.handlerCalls {
-		handlerCalls[i] = fmt.Sprintf("Handler %s called %v time(s)", handlerURL, counter)
-
-		i++
+		handlerCalls = append(handlerCalls, fmt.Sprintf("Handler %s called %v time(s)", handlerURL, counter))
 	}
 
 	statisticsOut := fmt.Sprintf("Some statistics:\n\n%s\n%s\n%s\n%s", pairsInCache, succeededRedirects, failedRedirects, strings.Join(handlerCalls, "\n"))
