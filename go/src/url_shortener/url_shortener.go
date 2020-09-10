@@ -9,10 +9,6 @@ import (
 	"sync"
 )
 
-var (
-	cache URLShortener = URLShortener{shorts: make(map[string]*urlInfo)}
-)
-
 // helpers
 
 func shorten(longURL string) string {
@@ -28,7 +24,8 @@ func shorten(longURL string) string {
 
 // URLShortener URL shortener server data structure
 type URLShortener struct {
-	mux    sync.Mutex
+	mux sync.Mutex
+
 	shorts map[string]*urlInfo
 }
 
@@ -90,7 +87,7 @@ func (cache *URLShortener) getStatistics() string {
 
 // handlers
 
-func shortenerHandler(w http.ResponseWriter, r *http.Request) {
+func (cache *URLShortener) shortenerHandler(w http.ResponseWriter, r *http.Request) {
 	longURL := r.URL.Path[len("/shorten/"):]
 	shortURL := shorten(longURL)
 
@@ -99,12 +96,12 @@ func shortenerHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "/%s", shortURL)
 }
 
-func statsHandler(w http.ResponseWriter, r *http.Request) {
+func (cache *URLShortener) statsHandler(w http.ResponseWriter, r *http.Request) {
 	stats := cache.getStatistics()
 	fmt.Fprintf(w, "%s", stats)
 }
 
-func expanderHandler(w http.ResponseWriter, r *http.Request) {
+func (cache *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Request) {
 	shortURLCandidate := r.URL.Path[len("/"):]
 
 	redirectURL, err := cache.getURL(shortURLCandidate)
@@ -120,9 +117,11 @@ func expanderHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/shorten/", shortenerHandler)
-	http.HandleFunc("/stats", statsHandler)
-	http.HandleFunc("/", expanderHandler)
+	cache := URLShortener{shorts: make(map[string]*urlInfo)}
+
+	http.HandleFunc("/shorten/", cache.shortenerHandler)
+	http.HandleFunc("/stats", cache.statsHandler)
+	http.HandleFunc("/", cache.expanderHandler)
 
 	log.Fatal(http.ListenAndServe(":9090", nil))
 }
