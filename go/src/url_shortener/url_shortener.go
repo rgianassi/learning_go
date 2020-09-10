@@ -74,8 +74,11 @@ func expanderHandler(w http.ResponseWriter, r *http.Request) {
 	redirectURL, err := cache.getURL(shortURLCandidate)
 
 	if err != nil {
-		fmt.Fprintf(w, "%s\n", err)
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
+
+	cache.incrementURLCounter(shortURLCandidate)
 
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
