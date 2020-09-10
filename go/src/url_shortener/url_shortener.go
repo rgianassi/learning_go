@@ -24,6 +24,8 @@ func shorten(longURL string) string {
 
 // URLShortener URL shortener server data structure
 type URLShortener struct {
+	port int
+
 	mux sync.Mutex
 
 	shorts map[string]*urlInfo
@@ -93,7 +95,9 @@ func (cache *URLShortener) shortenerHandler(w http.ResponseWriter, r *http.Reque
 
 	cache.addURL(longURL, shortURL)
 
-	fmt.Fprintf(w, "<a href=\"http://localhost:9090/%s\">%s</a>", shortURL, shortURL)
+	linkAddress := fmt.Sprintf("http://localhost:%v", cache.port)
+
+	fmt.Fprintf(w, "<a href=\"%s/%s\">%s</a>", linkAddress, shortURL, shortURL)
 }
 
 func (cache *URLShortener) statsHandler(w http.ResponseWriter, r *http.Request) {
@@ -117,11 +121,16 @@ func (cache *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Reques
 }
 
 func main() {
-	cache := URLShortener{shorts: make(map[string]*urlInfo)}
+	cache := URLShortener{
+		port:   9090,
+		shorts: make(map[string]*urlInfo),
+	}
 
 	http.HandleFunc("/shorten/", cache.shortenerHandler)
 	http.HandleFunc("/stats", cache.statsHandler)
 	http.HandleFunc("/", cache.expanderHandler)
 
-	log.Fatal(http.ListenAndServe(":9090", nil))
+	listenAddress := fmt.Sprintf(":%v", cache.port)
+
+	log.Fatal(http.ListenAndServe(listenAddress, nil))
 }
