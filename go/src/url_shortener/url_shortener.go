@@ -93,7 +93,7 @@ func (cache *URLShortener) shortenerHandler(w http.ResponseWriter, r *http.Reque
 
 	cache.addURL(longURL, shortURL)
 
-	fmt.Fprintf(w, "/%s", shortURL)
+	fmt.Fprintf(w, "<a href=\"http://localhost:9090/%s\">%s</a>", shortURL, shortURL)
 }
 
 func (cache *URLShortener) statsHandler(w http.ResponseWriter, r *http.Request) {
