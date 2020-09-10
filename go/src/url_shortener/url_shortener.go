@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -23,14 +24,14 @@ type urlInfo struct {
 
 	// statistics
 	shortURL string
-	//count    int
+	count    int
 }
 
 func (cache *URLShortener) addURL(longURL string, shortURL string) {
 	cache.mux.Lock()
 	defer cache.mux.Unlock()
 
-	cache.shorts[shortURL] = &urlInfo{longURL, shortURL}
+	cache.shorts[shortURL] = &urlInfo{longURL, shortURL, 0}
 }
 
 func (cache *URLShortener) getURL(shortURL string) (string, error) {
@@ -42,6 +43,36 @@ func (cache *URLShortener) getURL(shortURL string) (string, error) {
 	}
 
 	return "", fmt.Errorf("short URL not found: %s", shortURL)
+}
+
+func (cache *URLShortener) incrementURLCounter(shortURL string) {
+	cache.mux.Lock()
+	defer cache.mux.Unlock()
+
+	cache.shorts[shortURL].count++
+}
+
+func (cache *URLShortener) getStatistics() string {
+	cache.mux.Lock()
+	defer cache.mux.Unlock()
+
+	visits := 0
+	stats := make([]string, len(cache.shorts))
+	i := 0
+
+	for shortURL, info := range cache.shorts {
+		counter := info.count
+		longURL := info.longURL
+
+		visits += counter
+		stats[i] = fmt.Sprintf("URL: [%s] %s visited %v time(s)", shortURL, longURL, counter)
+
+		i++
+	}
+
+	statistics := fmt.Sprintf("Some statistics:\n\n%s\n\nTotal visits: %v", strings.Join(stats, "\n"), visits)
+
+	return statistics
 }
 
 func shorten(longURL string) string {
@@ -65,7 +96,8 @@ func shortenerHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func statsHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Some statistics")
+	stats := cache.getStatistics()
+	fmt.Fprintf(w, "%s", stats)
 }
 
 func expanderHandler(w http.ResponseWriter, r *http.Request) {
