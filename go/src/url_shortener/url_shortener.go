@@ -54,11 +54,13 @@ func (c *URLShortener) getURL(shortURL string) (string, error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	if longURL, ok := c.mappings[shortURL]; ok {
-		return longURL, nil
+	longURL, ok := c.mappings[shortURL]
+
+	if !ok {
+		return "", fmt.Errorf("short URL not found: %s", shortURL)
 	}
 
-	return "", fmt.Errorf("short URL not found: %s", shortURL)
+	return longURL, nil
 }
 
 func (c *URLShortener) incrementHandlerCounter(handler string, succeeded bool) {
