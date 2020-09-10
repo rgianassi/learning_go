@@ -43,7 +43,7 @@ type urlStatistics struct {
 	handlerCalls       map[string]int
 }
 
-func (c *URLShortener) addURL(longURL string, shortURL string) {
+func (c *URLShortener) addURL(longURL, shortURL string) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
