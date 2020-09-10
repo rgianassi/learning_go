@@ -26,6 +26,10 @@ func shorten(longURL string) string {
 type URLShortener struct {
 	port int
 
+	expanderRoute   string
+	shortenRoute    string
+	statisticsRoute string
+
 	mux sync.Mutex
 
 	shorts map[string]*urlInfo
@@ -89,24 +93,26 @@ func (cache *URLShortener) getStatistics() string {
 
 // handlers
 
-func (cache *URLShortener) shortenerHandler(w http.ResponseWriter, r *http.Request) {
-	longURL := r.URL.Path[len("/shorten/"):]
+func (cache *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
+	longURL := r.URL.Path[len(cache.shortenRoute):]
 	shortURL := shorten(longURL)
 
 	cache.addURL(longURL, shortURL)
 
 	linkAddress := fmt.Sprintf("http://localhost:%v", cache.port)
+	hrefAddress := fmt.Sprintf("%s/%s", linkAddress, shortURL)
+	hrefText := fmt.Sprintf("%s -> %s", shortURL, longURL)
 
-	fmt.Fprintf(w, "<a href=\"%s/%s\">%s</a>", linkAddress, shortURL, shortURL)
+	fmt.Fprintf(w, "<a href=\"%s\">%s</a>", hrefAddress, hrefText)
 }
 
-func (cache *URLShortener) statsHandler(w http.ResponseWriter, r *http.Request) {
+func (cache *URLShortener) statisticsHandler(w http.ResponseWriter, r *http.Request) {
 	stats := cache.getStatistics()
 	fmt.Fprintf(w, "%s", stats)
 }
 
 func (cache *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Request) {
-	shortURLCandidate := r.URL.Path[len("/"):]
+	shortURLCandidate := r.URL.Path[len(cache.expanderRoute):]
 
 	redirectURL, err := cache.getURL(shortURLCandidate)
 
@@ -122,13 +128,18 @@ func (cache *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Reques
 
 func main() {
 	cache := URLShortener{
-		port:   9090,
+		port: 9090,
+
+		expanderRoute:   "/",
+		shortenRoute:    "/shorten/",
+		statisticsRoute: "/statistics",
+
 		shorts: make(map[string]*urlInfo),
 	}
 
-	http.HandleFunc("/shorten/", cache.shortenerHandler)
-	http.HandleFunc("/stats", cache.statsHandler)
-	http.HandleFunc("/", cache.expanderHandler)
+	http.HandleFunc(cache.shortenRoute, cache.shortenHandler)
+	http.HandleFunc(cache.statisticsRoute, cache.statisticsHandler)
+	http.HandleFunc(cache.expanderRoute, cache.expanderHandler)
 
 	listenAddress := fmt.Sprintf(":%v", cache.port)
 
