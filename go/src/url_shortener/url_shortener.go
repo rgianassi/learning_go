@@ -32,63 +32,71 @@ type URLShortener struct {
 
 	mux sync.Mutex
 
-	shorts map[string]*urlInfo
+	mappings map[string]string
+
+	statistics urlStatistics
 }
 
-type urlInfo struct {
-	longURL string
-
-	// statistics
-	shortURL string
-	count    int
+type urlStatistics struct {
+	succeededRedirects int
+	failedRedirects    int
+	handlerCalls       map[string]int
 }
 
 func (cache *URLShortener) addURL(longURL string, shortURL string) {
 	cache.mux.Lock()
 	defer cache.mux.Unlock()
 
-	cache.shorts[shortURL] = &urlInfo{longURL, shortURL, 0}
+	cache.mappings[shortURL] = longURL
 }
 
 func (cache *URLShortener) getURL(shortURL string) (string, error) {
 	cache.mux.Lock()
 	defer cache.mux.Unlock()
 
-	if info, ok := cache.shorts[shortURL]; ok {
-		return info.longURL, nil
+	if longURL, ok := cache.mappings[shortURL]; ok {
+		return longURL, nil
 	}
 
 	return "", fmt.Errorf("short URL not found: %s", shortURL)
 }
 
-func (cache *URLShortener) incrementURLCounter(shortURL string) {
+func (cache *URLShortener) incrementHandlerCounter(handler string, succeeded bool) {
 	cache.mux.Lock()
 	defer cache.mux.Unlock()
 
-	cache.shorts[shortURL].count++
+	statistics := cache.statistics
+
+	statistics.handlerCalls[handler]++
+
+	if succeeded {
+		statistics.succeededRedirects++
+	} else {
+		statistics.failedRedirects++
+	}
 }
 
 func (cache *URLShortener) getStatistics() string {
 	cache.mux.Lock()
 	defer cache.mux.Unlock()
 
-	visits := 0
-	stats := make([]string, len(cache.shorts))
+	statistics := cache.statistics
+	pairsInCache := fmt.Sprintf("Number of long/short URL pairs: %v", len(cache.mappings))
+	succeededRedirects := fmt.Sprintf("Succeeded redirects: %v", statistics.succeededRedirects)
+	failedRedirects := fmt.Sprintf("Failed redirects: %v", statistics.failedRedirects)
+
+	handlerCalls := make([]string, len(statistics.handlerCalls))
 	i := 0
 
-	for shortURL, info := range cache.shorts {
-		counter := info.count
-		longURL := info.longURL
-
-		visits += counter
-		stats[i] = fmt.Sprintf("URL: [%s] %s visited %v time(s)", shortURL, longURL, counter)
+	for handlerURL, counter := range statistics.handlerCalls {
+		handlerCalls[i] = fmt.Sprintf("Handler %s called %v time(s)", handlerURL, counter)
 
 		i++
 	}
 
-	statistics := fmt.Sprintf("Some statistics:\n\n%s\n\nTotal visits: %v", strings.Join(stats, "\n"), visits)
+	statisticsOut := fmt.Sprintf("Some statistics:\n\n%s\n%s\n%s\n%s", pairsInCache, succeededRedirects, failedRedirects, strings.Join(handlerCalls, "\n"))
 
-	return statistics
+	return statisticsOut
 }
 
 // handlers
@@ -104,11 +112,12 @@ func (cache *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request
 	hrefText := fmt.Sprintf("%s -> %s", shortURL, longURL)
 
 	fmt.Fprintf(w, "<a href=\"%s\">%s</a>", hrefAddress, hrefText)
+	cache.incrementHandlerCounter(cache.shortenRoute, true)
 }
 
 func (cache *URLShortener) statisticsHandler(w http.ResponseWriter, r *http.Request) {
-	stats := cache.getStatistics()
-	fmt.Fprintf(w, "%s", stats)
+	fmt.Fprintf(w, "%s", cache.getStatistics())
+	cache.incrementHandlerCounter(cache.statisticsRoute, true)
 }
 
 func (cache *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Request) {
@@ -118,12 +127,12 @@ func (cache *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Reques
 
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
+		cache.incrementHandlerCounter(cache.expanderRoute, false)
 		return
 	}
 
-	cache.incrementURLCounter(shortURLCandidate)
-
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+	cache.incrementHandlerCounter(cache.expanderRoute, true)
 }
 
 func main() {
@@ -134,7 +143,11 @@ func main() {
 		shortenRoute:    "/shorten/",
 		statisticsRoute: "/statistics",
 
-		shorts: make(map[string]*urlInfo),
+		mappings: make(map[string]string),
+
+		statistics: urlStatistics{
+			handlerCalls: make(map[string]int),
+		},
 	}
 
 	http.HandleFunc(cache.shortenRoute, cache.shortenHandler)
