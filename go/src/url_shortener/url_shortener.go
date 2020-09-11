@@ -78,24 +78,21 @@ func (c *URLShortener) incrementHandlerCounter(handler string, succeeded bool) {
 	}
 }
 
-func (c *URLShortener) getStatistics() string {
-	c.mux.Lock()
-	defer c.mux.Unlock()
+func (s statsJSON) String() string {
+	stats := s.serverStats
 
-	statistics := c.statistics
-	pairsInCache := fmt.Sprintf("Number of long/short URL pairs: %v", len(c.mappings))
-	succeededRedirects := fmt.Sprintf("Succeeded redirects: %v", statistics.succeededRedirects)
-	failedRedirects := fmt.Sprintf("Failed redirects: %v", statistics.failedRedirects)
+	pairsInCache := fmt.Sprintf("Number of long/short URL pairs: %v", stats.totalURL)
+	succeededRedirects := fmt.Sprintf("Succeeded redirects: %v", stats.redirects.success)
+	failedRedirects := fmt.Sprintf("Failed redirects: %v", stats.redirects.failed)
 
-	handlerCalls := make([]string, 0, len(statistics.handlerCalls))
+	handlerCalls := make([]string, 0, len(stats.handlers))
 
-	for handlerURL, counter := range statistics.handlerCalls {
-		handlerCalls = append(handlerCalls, fmt.Sprintf("Handler %s called %v time(s)", handlerURL, counter))
+	for _, handler := range stats.handlers {
+		handlerCalls = append(handlerCalls, fmt.Sprintf("Handler %s called %v time(s)", handler.name, handler.count))
 	}
 
-	statisticsOut := fmt.Sprintf("Some statistics:\n\n%s\n%s\n%s\n%s", pairsInCache, succeededRedirects, failedRedirects, strings.Join(handlerCalls, "\n"))
-
-	return statisticsOut
+	statsBody := fmt.Sprintf("Some statistics:\n\n%s\n%s\n%s\n%s", pairsInCache, succeededRedirects, failedRedirects, strings.Join(handlerCalls, "\n"))
+	return statsBody
 }
 
 func (c *URLShortener) computeStatistics(stats *statsJSON) {
@@ -104,14 +101,12 @@ func (c *URLShortener) computeStatistics(stats *statsJSON) {
 
 	s := c.statistics
 
-	serverStats := stats.serverStats
+	stats.serverStats.totalURL = len(c.mappings)
+	stats.serverStats.redirects = redirectsJSON{s.succeededRedirects, s.failedRedirects}
 
-	serverStats.totalURL = len(c.mappings)
-	serverStats.redirects = redirectsJSON{s.succeededRedirects, s.failedRedirects}
-
-	serverStats.handlers = make([]handlerJSON, 0, len(s.handlerCalls))
+	stats.serverStats.handlers = make([]handlerJSON, 0, len(s.handlerCalls))
 	for handlerURL, counter := range s.handlerCalls {
-		serverStats.handlers = append(serverStats.handlers, handlerJSON{handlerURL, counter})
+		stats.serverStats.handlers = append(stats.serverStats.handlers, handlerJSON{handlerURL, counter})
 	}
 }
 
@@ -161,15 +156,16 @@ func (c *URLShortener) statisticsHandler(w http.ResponseWriter, r *http.Request)
 
 	statsJSON := statsJSON{}
 
+	c.computeStatistics(&statsJSON)
+
 	for i := 0; i < len(format); i++ {
 		if f := strings.ToLower(format[i]); f == "json" {
-			c.computeStatistics(&statsJSON)
 			// TODO send json
 			return
 		}
 	}
 
-	fmt.Fprintf(w, "%s", c.getStatistics())
+	fmt.Fprintf(w, "%s", statsJSON)
 }
 
 func (c *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Request) {
