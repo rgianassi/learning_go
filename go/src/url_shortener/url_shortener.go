@@ -35,29 +35,7 @@ type URLShortener struct {
 
 	mappings map[string]string
 
-	statistics statsJSON
-}
-
-type redirectsJSON struct {
-	Success int `json:"success"`
-	Failed  int `json:"failed"`
-}
-
-type handlerJSON struct {
-	Name  string `json:"name"`
-	Count int    `json:"count"`
-}
-
-type serverStatsJSON struct {
-	TotalURL  int           `json:"total_url"`
-	Redirects redirectsJSON `json:"redirects"`
-	Handlers  []handlerJSON `json:"handlers"`
-}
-
-type statsJSON struct {
-	ServerStats serverStatsJSON `json:"server_stats"`
-
-	mux sync.Mutex
+	statistics StatsJSON
 }
 
 func (c *URLShortener) addURL(longURL, shortURL string) {
@@ -80,64 +58,6 @@ func (c *URLShortener) getURL(shortURL string) (string, error) {
 	}
 
 	return longURL, nil
-}
-
-func (s *statsJSON) updateTotalURL(totalURL int) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	s.ServerStats.TotalURL = totalURL
-}
-
-func (s *statsJSON) incrementHandlerCounter(handler string, succeeded bool) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	if s.ServerStats.Handlers == nil {
-		s.ServerStats.Handlers = make([]handlerJSON, 0)
-	}
-
-	found := false
-	for i := range s.ServerStats.Handlers {
-		name := s.ServerStats.Handlers[i].Name
-		if name != handler {
-			continue
-		}
-
-		s.ServerStats.Handlers[i].Count++
-		found = true
-		break
-	}
-
-	if !found {
-		s.ServerStats.Handlers = append(s.ServerStats.Handlers, handlerJSON{handler, 1})
-	}
-
-	if succeeded {
-		s.ServerStats.Redirects.Success++
-	} else {
-		s.ServerStats.Redirects.Failed++
-	}
-}
-
-func (s *statsJSON) String() string {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	stats := s.ServerStats
-
-	pairsInCache := fmt.Sprintf("Number of long/short URL pairs: %v", stats.TotalURL)
-	succeededRedirects := fmt.Sprintf("Succeeded redirects: %v", stats.Redirects.Success)
-	failedRedirects := fmt.Sprintf("Failed redirects: %v", stats.Redirects.Failed)
-
-	handlerCalls := make([]string, 0, len(stats.Handlers))
-
-	for _, handler := range stats.Handlers {
-		handlerCalls = append(handlerCalls, fmt.Sprintf("Handler %s called %v time(s)", handler.Name, handler.Count))
-	}
-
-	statsBody := fmt.Sprintf("Some statistics:\n\n%s\n%s\n%s\n%s", pairsInCache, succeededRedirects, failedRedirects, strings.Join(handlerCalls, "\n"))
-	return statsBody
 }
 
 func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +122,7 @@ func main() {
 
 		mappings: make(map[string]string),
 
-		statistics: statsJSON{},
+		statistics: StatsJSON{},
 	}
 
 	http.HandleFunc(cache.shortenRoute, cache.shortenHandler)
