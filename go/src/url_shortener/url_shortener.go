@@ -98,9 +98,28 @@ func (c *URLShortener) getStatistics() string {
 	return statisticsOut
 }
 
+func (c *URLShortener) computeStatistics(stats *statsJSON) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	s := c.statistics
+
+	serverStats := stats.serverStats
+
+	serverStats.totalURL = len(c.mappings)
+	serverStats.redirects = redirectsJSON{s.succeededRedirects, s.failedRedirects}
+
+	serverStats.handlers = make([]handlerJSON, 0, len(s.handlerCalls))
+	for handlerURL, counter := range s.handlerCalls {
+		serverStats.handlers = append(serverStats.handlers, handlerJSON{handlerURL, counter})
+	}
+}
+
 // handlers
 
 func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
+	c.incrementHandlerCounter(c.shortenRoute, true)
+
 	longURL := r.URL.Path[len(c.shortenRoute):]
 	shortURL := shorten(longURL)
 
@@ -111,12 +130,46 @@ func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
 	hrefText := fmt.Sprintf("%s -> %s", shortURL, longURL)
 
 	fmt.Fprintf(w, "<a href=\"%s\">%s</a>", hrefAddress, hrefText)
-	c.incrementHandlerCounter(c.shortenRoute, true)
+}
+
+type redirectsJSON struct {
+	success int
+	failed  int
+}
+
+type handlerJSON struct {
+	name  string
+	count int
+}
+
+type serverStatsJSON struct {
+	totalURL  int
+	redirects redirectsJSON
+	handlers  []handlerJSON
+}
+
+type statsJSON struct {
+	serverStats serverStatsJSON
 }
 
 func (c *URLShortener) statisticsHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s", c.getStatistics())
 	c.incrementHandlerCounter(c.statisticsRoute, true)
+
+	url := r.URL
+	query := url.Query()
+	format := query["format"]
+
+	statsJSON := statsJSON{}
+
+	for i := 0; i < len(format); i++ {
+		if f := strings.ToLower(format[i]); f == "json" {
+			c.computeStatistics(&statsJSON)
+			// TODO send json
+			return
+		}
+	}
+
+	fmt.Fprintf(w, "%s", c.getStatistics())
 }
 
 func (c *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Request) {
