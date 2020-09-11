@@ -156,22 +156,20 @@ type statsJSON struct {
 func (c *URLShortener) statisticsHandler(w http.ResponseWriter, r *http.Request) {
 	url := r.URL
 	query := url.Query()
-	format := query["format"]
+	format := query.Get("format")
 
-	for i := 0; i < len(format); i++ {
-		if f := strings.ToLower(format[i]); f == "json" {
-			jsonCandidate, err := json.Marshal(c.statistics)
+	if f := strings.ToLower(format); f == "json" {
+		jsonCandidate, err := json.Marshal(c.statistics)
 
-			if err != nil {
-				w.WriteHeader(http.StatusNoContent)
-				c.incrementHandlerCounter(c.statisticsRoute, false)
-				return
-			}
-
-			fmt.Fprintf(w, "%s", jsonCandidate)
-			c.incrementHandlerCounter(c.statisticsRoute, true)
+		if err != nil {
+			w.WriteHeader(http.StatusNoContent)
+			c.incrementHandlerCounter(c.statisticsRoute, false)
 			return
 		}
+
+		fmt.Fprintf(w, "%s", jsonCandidate)
+		c.incrementHandlerCounter(c.statisticsRoute, true)
+		return
 	}
 
 	fmt.Fprintf(w, "%s", c.statistics)
