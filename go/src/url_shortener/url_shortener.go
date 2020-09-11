@@ -94,11 +94,13 @@ func (s statsJSON) String() string {
 	return statsBody
 }
 
-func (c *URLShortener) computeStatistics(stats *statsJSON) {
+func (c *URLShortener) computeStatistics() statsJSON {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
 	s := c.statistics
+
+	stats := statsJSON{}
 
 	stats.ServerStats.TotalURL = len(c.mappings)
 	stats.ServerStats.Redirects = redirectsJSON{s.succeededRedirects, s.failedRedirects}
@@ -107,6 +109,8 @@ func (c *URLShortener) computeStatistics(stats *statsJSON) {
 	for handlerURL, counter := range s.handlerCalls {
 		stats.ServerStats.Handlers = append(stats.ServerStats.Handlers, handlerJSON{handlerURL, counter})
 	}
+
+	return stats
 }
 
 func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
@@ -148,9 +152,7 @@ func (c *URLShortener) statisticsHandler(w http.ResponseWriter, r *http.Request)
 	query := url.Query()
 	format := query["format"]
 
-	statsJSON := statsJSON{}
-
-	c.computeStatistics(&statsJSON)
+	statsJSON := c.computeStatistics()
 
 	for i := 0; i < len(format); i++ {
 		if f := strings.ToLower(format[i]); f == "json" {
