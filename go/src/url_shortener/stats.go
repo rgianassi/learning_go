@@ -33,23 +33,25 @@ func (s *StatsJSON) String() string {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
+	statsBody := &strings.Builder{}
+
 	stats := s.ServerStats
 
-	pairsInCache := fmt.Sprintf("Number of long/short URL pairs: %v", stats.TotalURL)
+	statsBody.WriteString("Some statistics:\n\n")
+	fmt.Fprintf(statsBody, "Number of long/short URL pairs: %v\n", stats.TotalURL)
 
 	redirects := stats.Redirects
-	succeededRedirects := fmt.Sprintf("Succeeded redirects: %v", redirects.Success)
-	failedRedirects := fmt.Sprintf("Failed redirects: %v", redirects.Failed)
+	fmt.Fprintf(statsBody, "Succeeded redirects: %v\n", redirects.Success)
+	fmt.Fprintf(statsBody, "Failed redirects: %v\n", redirects.Failed)
 
 	handlers := &stats.Handlers
-	handlerCalls := make([]string, 0, len(*handlers))
-
 	for _, handler := range *handlers {
-		handlerCalls = append(handlerCalls, fmt.Sprintf("Handler %s called %v time(s)", handler.Name, handler.Count))
+		name := handler.Name
+		count := handler.Count
+		fmt.Fprintf(statsBody, "Handler %s called %v time(s)\n", name, count)
 	}
 
-	statsBody := fmt.Sprintf("Some statistics:\n\n%s\n%s\n%s\n%s", pairsInCache, succeededRedirects, failedRedirects, strings.Join(handlerCalls, "\n"))
-	return statsBody
+	return statsBody.String()
 }
 
 func (s *StatsJSON) updateTotalURL(totalURL int) {
