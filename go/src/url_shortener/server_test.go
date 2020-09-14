@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
 
 func TestAddURL(t *testing.T) {
 	sut := URLShortener{
@@ -77,5 +81,49 @@ func TestGetURL(t *testing.T) {
 		if test.expectedError && err == nil {
 			t.Error("Expected error but got nil.")
 		}
+	}
+}
+
+func TestExpanderHandler(t *testing.T) {
+	sut := URLShortener{
+		port: 9090,
+
+		expanderRoute:   "/",
+		shortenRoute:    "/shorten/",
+		statisticsRoute: "/statistics",
+
+		mappings: make(map[string]string),
+
+		statistics: NewStatsJSON(),
+	}
+
+	longURL := "https:/github.com/develersrl/powersoft-hmi"
+	shortURL := "f63377"
+	sut.addURL(longURL, shortURL)
+
+	request := httptest.NewRequest("GET", "/f63377", nil)
+	responseRecorder := httptest.NewRecorder()
+
+	sut.expanderHandler(responseRecorder, request)
+
+	response := responseRecorder.Result()
+
+	if response.StatusCode != http.StatusSeeOther {
+		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusSeeOther)
+	}
+
+	if responseRecorder.HeaderMap.Get("Location") != longURL {
+		t.Errorf("Unexpected location, got: %s, wanted: %s.", responseRecorder.HeaderMap.Get("Location"), longURL)
+	}
+
+	request = httptest.NewRequest("GET", "/123456", nil)
+	responseRecorder = httptest.NewRecorder()
+
+	sut.expanderHandler(responseRecorder, request)
+
+	response = responseRecorder.Result()
+
+	if response.StatusCode != http.StatusNotFound {
+		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusNotFound)
 	}
 }
