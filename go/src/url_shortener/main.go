@@ -16,7 +16,7 @@ func main() {
 
 		mappings: make(map[string]string),
 
-		statistics: StatsJSON{},
+		statistics: NewStatsJSON(),
 	}
 
 	http.HandleFunc(cache.shortenRoute, cache.shortenHandler)

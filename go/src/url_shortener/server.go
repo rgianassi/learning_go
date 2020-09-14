@@ -56,7 +56,7 @@ func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
 	hrefText := fmt.Sprintf("%s -> %s", shortURL, longURL)
 
 	fmt.Fprintf(w, "<a href=\"%s\">%s</a>", hrefAddress, hrefText)
-	c.statistics.incrementHandlerCounter(c.shortenRoute, true)
+	c.statistics.incrementHandlerCounter(ShortenHandlerIndex, true)
 }
 
 func (c *URLShortener) statisticsHandler(w http.ResponseWriter, r *http.Request) {
@@ -69,17 +69,17 @@ func (c *URLShortener) statisticsHandler(w http.ResponseWriter, r *http.Request)
 
 		if err != nil {
 			w.WriteHeader(http.StatusNoContent)
-			c.statistics.incrementHandlerCounter(c.statisticsRoute, false)
+			c.statistics.incrementHandlerCounter(StatisticsHandlerIndex, false)
 			return
 		}
 
 		fmt.Fprintf(w, "%s", jsonCandidate)
-		c.statistics.incrementHandlerCounter(c.statisticsRoute, true)
+		c.statistics.incrementHandlerCounter(StatisticsHandlerIndex, true)
 		return
 	}
 
 	fmt.Fprintf(w, "%s", &c.statistics)
-	c.statistics.incrementHandlerCounter(c.statisticsRoute, true)
+	c.statistics.incrementHandlerCounter(StatisticsHandlerIndex, true)
 }
 
 func (c *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Request) {
@@ -89,10 +89,10 @@ func (c *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		c.statistics.incrementHandlerCounter(c.expanderRoute, false)
+		c.statistics.incrementHandlerCounter(ExpanderHandlerIndex, false)
 		return
 	}
 
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
-	c.statistics.incrementHandlerCounter(c.expanderRoute, true)
+	c.statistics.incrementHandlerCounter(ExpanderHandlerIndex, true)
 }
