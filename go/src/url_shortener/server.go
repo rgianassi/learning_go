@@ -29,7 +29,7 @@ func (c *URLShortener) addURL(longURL, shortURL string) {
 
 	c.mappings[shortURL] = longURL
 
-	c.statistics.updateTotalURL(len(c.mappings))
+	c.statistics.updateTotalURL(int64(len(c.mappings)))
 }
 
 func (c *URLShortener) getURL(shortURL string) (string, error) {

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
-	"sync"
+	"sync/atomic"
 )
 
 // HandlerIndex an index for handlers
@@ -19,24 +19,22 @@ const (
 // StatsJSON Statistic data ready for JSON serialization
 type StatsJSON struct {
 	ServerStats serverStatsJSON `json:"server_stats"`
-
-	mux sync.Mutex
 }
 
 type serverStatsJSON struct {
-	TotalURL  int           `json:"total_url"`
+	TotalURL  int64         `json:"total_url"`
 	Redirects redirectsJSON `json:"redirects"`
 	Handlers  []handlerJSON `json:"handlers"`
 }
 
 type redirectsJSON struct {
-	Success int `json:"success"`
-	Failed  int `json:"failed"`
+	Success int64 `json:"success"`
+	Failed  int64 `json:"failed"`
 }
 
 type handlerJSON struct {
 	Name  string `json:"name"`
-	Count int    `json:"count"`
+	Count int64  `json:"count"`
 	index HandlerIndex
 }
 
@@ -62,43 +60,37 @@ func NewStatsJSON() StatsJSON {
 }
 
 func (s *StatsJSON) String() string {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
 	statsBody := &strings.Builder{}
 
 	stats := s.ServerStats
 
 	statsBody.WriteString("Some statistics:\n\n")
-	fmt.Fprintf(statsBody, "Number of long/short URL pairs: %v\n", stats.TotalURL)
+	totalURL := atomic.LoadInt64(&stats.TotalURL)
+	fmt.Fprintf(statsBody, "Number of long/short URL pairs: %v\n", totalURL)
 
 	redirects := stats.Redirects
-	fmt.Fprintf(statsBody, "Succeeded redirects: %v\n", redirects.Success)
-	fmt.Fprintf(statsBody, "Failed redirects: %v\n", redirects.Failed)
+	succeeded := atomic.LoadInt64(&redirects.Success)
+	fmt.Fprintf(statsBody, "Succeeded redirects: %v\n", succeeded)
+	failed := atomic.LoadInt64(&redirects.Failed)
+	fmt.Fprintf(statsBody, "Failed redirects: %v\n", failed)
 
 	handlers := &stats.Handlers
 	for _, handler := range *handlers {
 		name := handler.Name
-		count := handler.Count
+		count := atomic.LoadInt64(&handler.Count)
 		fmt.Fprintf(statsBody, "Handler %s called %v time(s)\n", name, count)
 	}
 
 	return statsBody.String()
 }
 
-func (s *StatsJSON) updateTotalURL(totalURL int) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
+func (s *StatsJSON) updateTotalURL(totalURL int64) {
 	stats := &s.ServerStats
 
-	stats.TotalURL = totalURL
+	atomic.StoreInt64(&stats.TotalURL, totalURL)
 }
 
 func (s *StatsJSON) incrementHandlerCounter(handlerIndex HandlerIndex, succeeded bool) {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
 	stats := &s.ServerStats
 
 	handlers := &stats.Handlers
@@ -109,14 +101,14 @@ func (s *StatsJSON) incrementHandlerCounter(handlerIndex HandlerIndex, succeeded
 			continue
 		}
 
-		handler.Count++
+		atomic.AddInt64(&handler.Count, 1)
 		break
 	}
 
 	redirects := &stats.Redirects
 	if succeeded {
-		redirects.Success++
+		atomic.AddInt64(&redirects.Success, 1)
 	} else {
-		redirects.Failed++
+		atomic.AddInt64(&redirects.Failed, 1)
 	}
 }
