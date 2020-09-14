@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -125,5 +127,57 @@ func TestExpanderHandler(t *testing.T) {
 
 	if response.StatusCode != http.StatusNotFound {
 		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusNotFound)
+	}
+}
+
+func TestStatisticsHandler(t *testing.T) {
+	sut := URLShortener{
+		port: 9090,
+
+		expanderRoute:   "/",
+		shortenRoute:    "/shorten/",
+		statisticsRoute: "/statistics",
+
+		mappings: make(map[string]string),
+
+		statistics: NewStatsJSON(),
+	}
+
+	request := httptest.NewRequest("GET", "/statistics", nil)
+	responseRecorder := httptest.NewRecorder()
+
+	sut.statisticsHandler(responseRecorder, request)
+
+	response := responseRecorder.Result()
+
+	if response.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusOK)
+	}
+
+	if response.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
+		t.Errorf("Unexpected location, got: %s, wanted: %s.", response.Header.Get("Content-Type"), "text/plain; charset=utf-8")
+	}
+
+	request = httptest.NewRequest("GET", "/statistics?format=json", nil)
+	responseRecorder = httptest.NewRecorder()
+
+	sut.statisticsHandler(responseRecorder, request)
+
+	response = responseRecorder.Result()
+
+	if response.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusOK)
+	}
+
+	body, _ := ioutil.ReadAll(response.Body)
+	var stats StatsJSON
+	json.Unmarshal(body, &stats)
+
+	if stats.ServerStats.TotalURL != 0 {
+		t.Errorf("Incorrect TotalURL, got: %v, wanted: %v.", stats.ServerStats.TotalURL, 0)
+	}
+
+	if stats.ServerStats.Redirects.Success != 1 {
+		t.Errorf("Incorrect success, got: %v, wanted: %v.", stats.ServerStats.Redirects.Success, 1)
 	}
 }
