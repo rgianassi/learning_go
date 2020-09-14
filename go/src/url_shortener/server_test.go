@@ -155,7 +155,7 @@ func TestStatisticsHandler(t *testing.T) {
 	}
 
 	if response.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
-		t.Errorf("Unexpected location, got: %s, wanted: %s.", response.Header.Get("Content-Type"), "text/plain; charset=utf-8")
+		t.Errorf("Unexpected content type, got: %s, wanted: %s.", response.Header.Get("Content-Type"), "text/plain; charset=utf-8")
 	}
 
 	request = httptest.NewRequest("GET", "/statistics?format=json", nil)
@@ -179,5 +179,40 @@ func TestStatisticsHandler(t *testing.T) {
 
 	if stats.ServerStats.Redirects.Success != 1 {
 		t.Errorf("Incorrect success, got: %v, wanted: %v.", stats.ServerStats.Redirects.Success, 1)
+	}
+}
+
+func TestShortenHandler(t *testing.T) {
+	sut := URLShortener{
+		port: 9090,
+
+		expanderRoute:   "/",
+		shortenRoute:    "/shorten/",
+		statisticsRoute: "/statistics",
+
+		mappings: make(map[string]string),
+
+		statistics: NewStatsJSON(),
+	}
+
+	request := httptest.NewRequest("GET", "/shorten/https:/github.com/develersrl/powersoft-hmi", nil)
+	responseRecorder := httptest.NewRecorder()
+
+	sut.shortenHandler(responseRecorder, request)
+
+	response := responseRecorder.Result()
+
+	if response.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusOK)
+	}
+
+	if response.Header.Get("Content-Type") != "text/html; charset=utf-8" {
+		t.Errorf("Unexpected content type, got: %s, wanted: %s.", response.Header.Get("Content-Type"), "text/html; charset=utf-8")
+	}
+
+	body, _ := ioutil.ReadAll(response.Body)
+
+	if string(body) != "<a href=\"http://localhost:9090/f63377\">f63377 -> https:/github.com/develersrl/powersoft-hmi</a>" {
+		t.Errorf("Incorrect body, got: %s, wanted: %s.", body, "<a href=\"http://localhost:9090/f63377\">f63377 -> https:/github.com/develersrl/powersoft-hmi</a>")
 	}
 }
