@@ -54,10 +54,10 @@ func TestGetURL(t *testing.T) {
 	}
 
 	tests := []struct {
-		shortURL      string
-		longURL       string
-		wantLongURL   string
-		expectedError bool
+		shortURL    string
+		longURL     string
+		wantLongURL string
+		wantErr     bool
 	}{
 		{"", "", "", false},
 		{"q", "q", "q", false},
@@ -72,7 +72,7 @@ func TestGetURL(t *testing.T) {
 	for _, test := range tests {
 		longURL, err := sut.getURL(test.shortURL)
 
-		if !test.expectedError && err != nil {
+		if !test.wantErr && err != nil {
 			t.Errorf("Unexpected error but got: %s.", err)
 
 			if longURL != test.wantLongURL {
@@ -80,7 +80,7 @@ func TestGetURL(t *testing.T) {
 			}
 		}
 
-		if test.expectedError && err == nil {
+		if test.wantErr && err == nil {
 			t.Error("Expected error but got nil.")
 		}
 	}
