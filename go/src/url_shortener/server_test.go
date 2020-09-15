@@ -22,9 +22,9 @@ func TestAddURL(t *testing.T) {
 	}
 
 	tests := []struct {
-		longURL          string
-		shortURL         string
-		expectedTotalURL int64
+		longURL      string
+		shortURL     string
+		wantTotalURL int64
 	}{
 		{"", "", 1},
 		{"a", "a", 2},
@@ -34,8 +34,8 @@ func TestAddURL(t *testing.T) {
 
 	for _, test := range tests {
 		sut.addURL(test.longURL, test.shortURL)
-		if sut.statistics.ServerStats.TotalURL != test.expectedTotalURL {
-			t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.statistics.ServerStats.TotalURL, test.expectedTotalURL)
+		if sut.statistics.ServerStats.TotalURL != test.wantTotalURL {
+			t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.statistics.ServerStats.TotalURL, test.wantTotalURL)
 		}
 	}
 }

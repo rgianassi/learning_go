@@ -25,7 +25,7 @@ func TestStatistics(t *testing.T) {
 func TestUpdateTotalURL(t *testing.T) {
 	tests := []struct {
 		totalURL         int64
-		expectedTotalURL int64
+		wantTotalURL int64
 	}{
 		{0, 0},
 		{1, 1},
@@ -36,8 +36,8 @@ func TestUpdateTotalURL(t *testing.T) {
 
 	for _, test := range tests {
 		sut.updateTotalURL(test.totalURL)
-		if sut.ServerStats.TotalURL != test.expectedTotalURL {
-			t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.ServerStats.TotalURL, test.expectedTotalURL)
+		if sut.ServerStats.TotalURL != test.wantTotalURL {
+			t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.ServerStats.TotalURL, test.wantTotalURL)
 		}
 	}
 }
