@@ -8,8 +8,8 @@ import (
 	"testing"
 )
 
-func TestAddURL(t *testing.T) {
-	sut := URLShortener{
+func newURLShortener() URLShortener {
+	return URLShortener{
 		port: 9090,
 
 		expanderRoute:   "/",
@@ -20,6 +20,10 @@ func TestAddURL(t *testing.T) {
 
 		statistics: NewStatsJSON(),
 	}
+}
+
+func TestAddURL(t *testing.T) {
+	sut := newURLShortener()
 
 	tests := []struct {
 		longURL      string
@@ -41,17 +45,7 @@ func TestAddURL(t *testing.T) {
 }
 
 func TestGetURL(t *testing.T) {
-	sut := URLShortener{
-		port: 9090,
-
-		expanderRoute:   "/",
-		shortenRoute:    "/shorten/",
-		statisticsRoute: "/statistics",
-
-		mappings: make(map[string]string),
-
-		statistics: NewStatsJSON(),
-	}
+	sut := newURLShortener()
 
 	tests := []struct {
 		shortURL    string
@@ -87,17 +81,7 @@ func TestGetURL(t *testing.T) {
 }
 
 func TestExpanderHandler(t *testing.T) {
-	sut := URLShortener{
-		port: 9090,
-
-		expanderRoute:   "/",
-		shortenRoute:    "/shorten/",
-		statisticsRoute: "/statistics",
-
-		mappings: make(map[string]string),
-
-		statistics: NewStatsJSON(),
-	}
+	sut := newURLShortener()
 
 	longURL := "https:/github.com/develersrl/powersoft-hmi"
 	shortURL := "f63377"
@@ -131,17 +115,7 @@ func TestExpanderHandler(t *testing.T) {
 }
 
 func TestStatisticsHandler(t *testing.T) {
-	sut := URLShortener{
-		port: 9090,
-
-		expanderRoute:   "/",
-		shortenRoute:    "/shorten/",
-		statisticsRoute: "/statistics",
-
-		mappings: make(map[string]string),
-
-		statistics: NewStatsJSON(),
-	}
+	sut := newURLShortener()
 
 	request := httptest.NewRequest("GET", "/statistics", nil)
 	responseRecorder := httptest.NewRecorder()
@@ -183,17 +157,7 @@ func TestStatisticsHandler(t *testing.T) {
 }
 
 func TestShortenHandler(t *testing.T) {
-	sut := URLShortener{
-		port: 9090,
-
-		expanderRoute:   "/",
-		shortenRoute:    "/shorten/",
-		statisticsRoute: "/statistics",
-
-		mappings: make(map[string]string),
-
-		statistics: NewStatsJSON(),
-	}
+	sut := newURLShortener()
 
 	request := httptest.NewRequest("GET", "/shorten/https:/github.com/develersrl/powersoft-hmi", nil)
 	responseRecorder := httptest.NewRecorder()
