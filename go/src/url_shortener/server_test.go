@@ -178,3 +178,31 @@ func TestShortenHandler(t *testing.T) {
 		t.Errorf("Incorrect body, got: %s, want: %s.", body, "<a href=\"http://localhost:9090/f63377\">f63377 -> https:/github.com/develersrl/powersoft-hmi</a>")
 	}
 }
+
+func TestPersistence(t *testing.T) {
+	sut := newURLShortener()
+
+	longURL := "https:/github.com/develersrl/powersoft-hmi"
+	shortURL := "f63377"
+
+	sut.addURL(longURL, shortURL)
+
+	sut.storePersistenceFile(*persistence)
+
+	sut = newURLShortener()
+	sut.loadPersistenceFile(*persistence)
+
+	candidateLongURL, err := sut.getURL(shortURL)
+
+	if err != nil {
+		t.Errorf("Unexpected error but got: %s.", err)
+	}
+
+	if longURL != candidateLongURL {
+		t.Errorf("Incorrect long URL value, got: %s, want: %s.", candidateLongURL, longURL)
+	}
+
+	if sut.statistics.ServerStats.TotalURL != 1 {
+		t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.statistics.ServerStats.TotalURL, 1)
+	}
+}

@@ -1,3 +1,9 @@
+#
 # Project build dir
 # -----------------
 build/
+
+#
+# Persistence file
+# -----------------
+src/url_shortener/persistence.json

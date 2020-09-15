@@ -3,7 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -19,6 +22,40 @@ type URLShortener struct {
 	statistics StatsJSON
 
 	mux sync.Mutex
+}
+
+func (c *URLShortener) loadPersistenceFile(persistenceFile string) {
+	absPath, err := filepath.Abs(persistenceFile)
+	if err != nil {
+		return
+	}
+
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		return
+	}
+
+	jsonCandidate, err := ioutil.ReadFile(absPath)
+	if err != nil {
+		return
+	}
+
+	json.Unmarshal(jsonCandidate, &c.mappings)
+	c.statistics.updateTotalURL(int64(len(c.mappings)))
+}
+
+func (c *URLShortener) storePersistenceFile(persistenceFile string) {
+	absPath, err := filepath.Abs(persistenceFile)
+	if err != nil {
+		return
+	}
+
+	jsonCandidate, err := json.Marshal(c.mappings)
+
+	if err != nil {
+		return
+	}
+
+	ioutil.WriteFile(absPath, jsonCandidate, 0644)
 }
 
 func (c *URLShortener) addURL(longURL, shortURL string) {

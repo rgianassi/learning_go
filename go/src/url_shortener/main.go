@@ -8,7 +8,8 @@ import (
 )
 
 var (
-	address = flag.String("addr", "localhost:9090", "server listen address")
+	address     = flag.String("addr", "localhost:9090", "server listen address")
+	persistence = flag.String("load", "persistence.json", "persistence JSON file for URLs")
 )
 
 func main() {
@@ -34,15 +35,6 @@ func main() {
 }
 
 /**
-1.First the program should now accept some command line flags:
-
--addr localhost:9090 should set the server to listen to that address
--load FILE should load a JSON file containing the short/long URL pairs
- that the server will immediately be able to redirect
-
-Statistics don't need to be persisted, but the statistic that indicates
- the number of URLs in the server should reflect the reality.
-
 Implement server graceful shutdown. The server should handle SIGINT and SIGKILL
  by saving all its URLs in a file in the current directory, this file should have
   the same format that the one the -load option accepts.
