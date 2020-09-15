@@ -10,8 +10,6 @@ import (
 
 func newURLShortener() URLShortener {
 	return URLShortener{
-		port: 9090,
-
 		expanderRoute:   "/",
 		shortenRoute:    "/shorten/",
 		statisticsRoute: "/statistics",

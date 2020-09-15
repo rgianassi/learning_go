@@ -10,8 +10,6 @@ import (
 
 // URLShortener URL shortener server data structure
 type URLShortener struct {
-	port int
-
 	expanderRoute   string
 	shortenRoute    string
 	statisticsRoute string
@@ -51,7 +49,7 @@ func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
 
 	c.addURL(longURL, shortURL)
 
-	linkAddress := fmt.Sprintf("http://localhost:%v", c.port)
+	linkAddress := fmt.Sprintf("http://%s", *address)
 	hrefAddress := fmt.Sprintf("%s/%s", linkAddress, shortURL)
 	hrefText := fmt.Sprintf("%s -> %s", shortURL, longURL)
 
