@@ -35,7 +35,7 @@ func TestAddURL(t *testing.T) {
 	for _, test := range tests {
 		sut.addURL(test.longURL, test.shortURL)
 		if sut.statistics.ServerStats.TotalURL != test.expectedTotalURL {
-			t.Errorf("Incorrect total URL value, got: %v, wanted: %v.", sut.statistics.ServerStats.TotalURL, test.expectedTotalURL)
+			t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.statistics.ServerStats.TotalURL, test.expectedTotalURL)
 		}
 	}
 }
@@ -76,7 +76,7 @@ func TestGetURL(t *testing.T) {
 			t.Errorf("Unexpected error but got: %s.", err)
 
 			if longURL != test.expectedLongURL {
-				t.Errorf("Incorrect long URL value, got: %s, wanted: %s.", longURL, test.expectedLongURL)
+				t.Errorf("Incorrect long URL value, got: %s, want: %s.", longURL, test.expectedLongURL)
 			}
 		}
 
@@ -111,11 +111,11 @@ func TestExpanderHandler(t *testing.T) {
 	response := responseRecorder.Result()
 
 	if response.StatusCode != http.StatusSeeOther {
-		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusSeeOther)
+		t.Errorf("Unexpected status code, got: %v, want: %v.", response.StatusCode, http.StatusSeeOther)
 	}
 
 	if responseRecorder.HeaderMap.Get("Location") != longURL {
-		t.Errorf("Unexpected location, got: %s, wanted: %s.", responseRecorder.HeaderMap.Get("Location"), longURL)
+		t.Errorf("Unexpected location, got: %s, want: %s.", responseRecorder.HeaderMap.Get("Location"), longURL)
 	}
 
 	request = httptest.NewRequest("GET", "/123456", nil)
@@ -126,7 +126,7 @@ func TestExpanderHandler(t *testing.T) {
 	response = responseRecorder.Result()
 
 	if response.StatusCode != http.StatusNotFound {
-		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusNotFound)
+		t.Errorf("Unexpected status code, got: %v, want: %v.", response.StatusCode, http.StatusNotFound)
 	}
 }
 
@@ -151,11 +151,11 @@ func TestStatisticsHandler(t *testing.T) {
 	response := responseRecorder.Result()
 
 	if response.StatusCode != http.StatusOK {
-		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusOK)
+		t.Errorf("Unexpected status code, got: %v, want: %v.", response.StatusCode, http.StatusOK)
 	}
 
 	if response.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
-		t.Errorf("Unexpected content type, got: %s, wanted: %s.", response.Header.Get("Content-Type"), "text/plain; charset=utf-8")
+		t.Errorf("Unexpected content type, got: %s, want: %s.", response.Header.Get("Content-Type"), "text/plain; charset=utf-8")
 	}
 
 	request = httptest.NewRequest("GET", "/statistics?format=json", nil)
@@ -166,7 +166,7 @@ func TestStatisticsHandler(t *testing.T) {
 	response = responseRecorder.Result()
 
 	if response.StatusCode != http.StatusOK {
-		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusOK)
+		t.Errorf("Unexpected status code, got: %v, want: %v.", response.StatusCode, http.StatusOK)
 	}
 
 	body, _ := ioutil.ReadAll(response.Body)
@@ -174,11 +174,11 @@ func TestStatisticsHandler(t *testing.T) {
 	json.Unmarshal(body, &stats)
 
 	if stats.ServerStats.TotalURL != 0 {
-		t.Errorf("Incorrect TotalURL, got: %v, wanted: %v.", stats.ServerStats.TotalURL, 0)
+		t.Errorf("Incorrect TotalURL, got: %v, want: %v.", stats.ServerStats.TotalURL, 0)
 	}
 
 	if stats.ServerStats.Redirects.Success != 1 {
-		t.Errorf("Incorrect success, got: %v, wanted: %v.", stats.ServerStats.Redirects.Success, 1)
+		t.Errorf("Incorrect success, got: %v, want: %v.", stats.ServerStats.Redirects.Success, 1)
 	}
 }
 
@@ -203,16 +203,16 @@ func TestShortenHandler(t *testing.T) {
 	response := responseRecorder.Result()
 
 	if response.StatusCode != http.StatusOK {
-		t.Errorf("Unexpected status code, got: %v, wanted: %v.", response.StatusCode, http.StatusOK)
+		t.Errorf("Unexpected status code, got: %v, want: %v.", response.StatusCode, http.StatusOK)
 	}
 
 	if response.Header.Get("Content-Type") != "text/html; charset=utf-8" {
-		t.Errorf("Unexpected content type, got: %s, wanted: %s.", response.Header.Get("Content-Type"), "text/html; charset=utf-8")
+		t.Errorf("Unexpected content type, got: %s, want: %s.", response.Header.Get("Content-Type"), "text/html; charset=utf-8")
 	}
 
 	body, _ := ioutil.ReadAll(response.Body)
 
 	if string(body) != "<a href=\"http://localhost:9090/f63377\">f63377 -> https:/github.com/develersrl/powersoft-hmi</a>" {
-		t.Errorf("Incorrect body, got: %s, wanted: %s.", body, "<a href=\"http://localhost:9090/f63377\">f63377 -> https:/github.com/develersrl/powersoft-hmi</a>")
+		t.Errorf("Incorrect body, got: %s, want: %s.", body, "<a href=\"http://localhost:9090/f63377\">f63377 -> https:/github.com/develersrl/powersoft-hmi</a>")
 	}
 }

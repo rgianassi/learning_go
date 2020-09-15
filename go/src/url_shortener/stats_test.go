@@ -6,19 +6,19 @@ func TestStatistics(t *testing.T) {
 	sut := NewStatsJSON()
 
 	if sut.ServerStats.TotalURL != 0 {
-		t.Logf("Incorrect total URL value after init, got: %v, wanted: %v.", sut.ServerStats.TotalURL, 0)
+		t.Logf("Incorrect total URL value after init, got: %v, want: %v.", sut.ServerStats.TotalURL, 0)
 	}
 
 	if sut.ServerStats.Redirects.Failed != 0 {
-		t.Logf("Incorrect failed redirect value after init, got: %v, wanted: %v.", sut.ServerStats.Redirects.Failed, 0)
+		t.Logf("Incorrect failed redirect value after init, got: %v, want: %v.", sut.ServerStats.Redirects.Failed, 0)
 	}
 
 	if sut.ServerStats.Redirects.Success != 0 {
-		t.Logf("Incorrect succeeded redirect value after init, got: %v, wanted: %v.", sut.ServerStats.Redirects.Success, 0)
+		t.Logf("Incorrect succeeded redirect value after init, got: %v, want: %v.", sut.ServerStats.Redirects.Success, 0)
 	}
 
 	if sut.ServerStats.Handlers[0].Count != 0 {
-		t.Logf("Incorrect handler count value after init, got: %v, wanted: %v.", sut.ServerStats.Handlers[0].Count, 0)
+		t.Logf("Incorrect handler count value after init, got: %v, want: %v.", sut.ServerStats.Handlers[0].Count, 0)
 	}
 }
 
@@ -37,7 +37,7 @@ func TestUpdateTotalURL(t *testing.T) {
 	for _, test := range tests {
 		sut.updateTotalURL(test.totalURL)
 		if sut.ServerStats.TotalURL != test.expectedTotalURL {
-			t.Errorf("Incorrect total URL value, got: %v, wanted: %v.", sut.ServerStats.TotalURL, test.expectedTotalURL)
+			t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.ServerStats.TotalURL, test.expectedTotalURL)
 		}
 	}
 }
@@ -65,11 +65,11 @@ func TestIncrementHandlerCount(t *testing.T) {
 		sut.incrementHandlerCounter(test.handlerIndex, test.success)
 
 		if sut.ServerStats.Redirects.Success != test.expectedSuccess {
-			t.Errorf("Incorrect success value, got: %v, wanted: %v.", sut.ServerStats.Redirects.Success, test.expectedSuccess)
+			t.Errorf("Incorrect success value, got: %v, want: %v.", sut.ServerStats.Redirects.Success, test.expectedSuccess)
 		}
 
 		if sut.ServerStats.Redirects.Failed != test.expectedFailed {
-			t.Errorf("Incorrect failed value, got: %v, wanted: %v.", sut.ServerStats.Redirects.Failed, test.expectedFailed)
+			t.Errorf("Incorrect failed value, got: %v, want: %v.", sut.ServerStats.Redirects.Failed, test.expectedFailed)
 		}
 
 		handlers := &sut.ServerStats.Handlers
@@ -80,7 +80,7 @@ func TestIncrementHandlerCount(t *testing.T) {
 			}
 
 			if sut.ServerStats.Handlers[i].Count != test.expectedHandlerCount {
-				t.Errorf("Incorrect count value, got: %v, wanted: %v.", sut.ServerStats.Handlers[i].Count, test.expectedHandlerCount)
+				t.Errorf("Incorrect count value, got: %v, want: %v.", sut.ServerStats.Handlers[i].Count, test.expectedHandlerCount)
 			}
 		}
 	}

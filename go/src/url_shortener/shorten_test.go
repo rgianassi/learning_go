@@ -14,7 +14,7 @@ func TestShortenURL(t *testing.T) {
 	for _, test := range tests {
 		actualShortenURL := shorten(test.url)
 		if actualShortenURL != test.expectedShortenURL {
-			t.Errorf("Shorten URL was incorrect, got: %s, wanted: %s.", actualShortenURL, test.expectedShortenURL)
+			t.Errorf("Shorten URL was incorrect, got: %s, want: %s.", actualShortenURL, test.expectedShortenURL)
 		}
 	}
 }
