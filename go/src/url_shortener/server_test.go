@@ -54,10 +54,10 @@ func TestGetURL(t *testing.T) {
 	}
 
 	tests := []struct {
-		shortURL        string
-		longURL         string
-		expectedLongURL string
-		expectedError   bool
+		shortURL      string
+		longURL       string
+		wantLongURL   string
+		expectedError bool
 	}{
 		{"", "", "", false},
 		{"q", "q", "q", false},
@@ -75,8 +75,8 @@ func TestGetURL(t *testing.T) {
 		if !test.expectedError && err != nil {
 			t.Errorf("Unexpected error but got: %s.", err)
 
-			if longURL != test.expectedLongURL {
-				t.Errorf("Incorrect long URL value, got: %s, want: %s.", longURL, test.expectedLongURL)
+			if longURL != test.wantLongURL {
+				t.Errorf("Incorrect long URL value, got: %s, want: %s.", longURL, test.wantLongURL)
 			}
 		}
 
