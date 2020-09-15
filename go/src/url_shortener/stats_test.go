@@ -24,7 +24,7 @@ func TestStatistics(t *testing.T) {
 
 func TestUpdateTotalURL(t *testing.T) {
 	tests := []struct {
-		totalURL         int64
+		totalURL     int64
 		wantTotalURL int64
 	}{
 		{0, 0},
@@ -44,11 +44,11 @@ func TestUpdateTotalURL(t *testing.T) {
 
 func TestIncrementHandlerCount(t *testing.T) {
 	tests := []struct {
-		handlerIndex         HandlerIndex
-		success              bool
-		expectedHandlerCount int64
-		expectedSuccess      int64
-		expectedFailed       int64
+		handlerIndex     HandlerIndex
+		success          bool
+		wantHandlerCount int64
+		wantSuccess      int64
+		wantFailed       int64
 	}{
 		{ShortenHandlerIndex, true, 1, 1, 0},
 		{ShortenHandlerIndex, false, 2, 1, 1},
@@ -64,12 +64,12 @@ func TestIncrementHandlerCount(t *testing.T) {
 	for _, test := range tests {
 		sut.incrementHandlerCounter(test.handlerIndex, test.success)
 
-		if sut.ServerStats.Redirects.Success != test.expectedSuccess {
-			t.Errorf("Incorrect success value, got: %v, want: %v.", sut.ServerStats.Redirects.Success, test.expectedSuccess)
+		if sut.ServerStats.Redirects.Success != test.wantSuccess {
+			t.Errorf("Incorrect success value, got: %v, want: %v.", sut.ServerStats.Redirects.Success, test.wantSuccess)
 		}
 
-		if sut.ServerStats.Redirects.Failed != test.expectedFailed {
-			t.Errorf("Incorrect failed value, got: %v, want: %v.", sut.ServerStats.Redirects.Failed, test.expectedFailed)
+		if sut.ServerStats.Redirects.Failed != test.wantFailed {
+			t.Errorf("Incorrect failed value, got: %v, want: %v.", sut.ServerStats.Redirects.Failed, test.wantFailed)
 		}
 
 		handlers := &sut.ServerStats.Handlers
@@ -79,8 +79,8 @@ func TestIncrementHandlerCount(t *testing.T) {
 				continue
 			}
 
-			if sut.ServerStats.Handlers[i].Count != test.expectedHandlerCount {
-				t.Errorf("Incorrect count value, got: %v, want: %v.", sut.ServerStats.Handlers[i].Count, test.expectedHandlerCount)
+			if sut.ServerStats.Handlers[i].Count != test.wantHandlerCount {
+				t.Errorf("Incorrect count value, got: %v, want: %v.", sut.ServerStats.Handlers[i].Count, test.wantHandlerCount)
 			}
 		}
 	}
