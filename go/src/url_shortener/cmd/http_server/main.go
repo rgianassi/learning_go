@@ -17,7 +17,7 @@ var (
 	persistence = flag.String("load", "persistence.json", "persistence JSON file for URLs")
 )
 
-func unpersist(cache *URLShortener) {
+func unpersist(cache *shorten.URLShortener) {
 	log.Println("loading persistence data from:", *persistence)
 
 	f, err := os.Open(*persistence)
@@ -31,7 +31,7 @@ func unpersist(cache *URLShortener) {
 	cache.unpersistFrom(reader)
 }
 
-func persist(cache *URLShortener) {
+func persist(cache *shorten.URLShortener) {
 	log.Println("storing persistence data to:", *persistence)
 
 	f, err := os.Open(*persistence)
@@ -45,13 +45,13 @@ func persist(cache *URLShortener) {
 	cache.persistTo(writer)
 }
 
-func setupHandlerFunctions(cache *URLShortener) {
+func setupHandlerFunctions(cache *shorten.URLShortener) {
 	http.HandleFunc(cache.shortenRoute, cache.shortenHandler)
 	http.HandleFunc(cache.statisticsRoute, cache.statisticsHandler)
 	http.HandleFunc(cache.expanderRoute, cache.expanderHandler)
 }
 
-func setupHTTPServerShutdown(cache *URLShortener, server *http.Server, idleConnectionsClosed chan struct{}) {
+func setupHTTPServerShutdown(cache *shorten.URLShortener, server *http.Server, idleConnectionsClosed chan struct{}) {
 	signalChannel := make(chan os.Signal, 1)
 
 	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGKILL)
@@ -82,7 +82,7 @@ func main() {
 	var server http.Server
 	server.Addr = fmt.Sprintf("%s", *address)
 
-	cache := URLShortener{
+	cache := shorten.URLShortener{
 		expanderRoute:   "/",
 		shortenRoute:    "/shorten/",
 		statisticsRoute: "/statistics",

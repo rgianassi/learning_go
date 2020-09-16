@@ -160,7 +160,7 @@ func TestShortenHandler(t *testing.T) {
 	sut := newURLShortener()
 
 	request := httptest.NewRequest("GET", "/shorten/https:/github.com/develersrl/powersoft-hmi", nil)
-	request.Host = *address
+	request.Host = "localhost:9090"
 	responseRecorder := httptest.NewRecorder()
 
 	sut.shortenHandler(responseRecorder, request)
