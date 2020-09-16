@@ -81,12 +81,13 @@ func (c *URLShortener) getURL(shortURL string) (string, error) {
 }
 
 func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
+	serverAddress := r.Host
 	longURL := r.URL.Path[len(c.shortenRoute):]
 	shortURL := shorten(longURL)
 
 	c.addURL(longURL, shortURL)
 
-	linkAddress := fmt.Sprintf("http://%s", *address)
+	linkAddress := fmt.Sprintf("http://%s", serverAddress)
 	hrefAddress := fmt.Sprintf("%s/%s", linkAddress, shortURL)
 	hrefText := fmt.Sprintf("%s -> %s", shortURL, longURL)
 
