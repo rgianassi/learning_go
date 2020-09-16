@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
@@ -15,6 +16,34 @@ var (
 	address     = flag.String("addr", "localhost:9090", "server listen address")
 	persistence = flag.String("load", "persistence.json", "persistence JSON file for URLs")
 )
+
+func unpersistFrom(cache *URLShortener) {
+	log.Println("loading persistence data from:", *persistence)
+
+	f, err := os.Open(*persistence)
+	if err != nil {
+		log.Fatalln("error unpersisting:", err)
+	}
+	defer f.Close()
+
+	reader := bufio.NewReader(f)
+
+	cache.unpersistFrom(reader)
+}
+
+func persistTo(cache *URLShortener) {
+	log.Println("storing persistence data to:", *persistence)
+
+	f, err := os.Open(*persistence)
+	if err != nil {
+		log.Fatalln("error persisting:", err)
+	}
+	defer f.Close()
+
+	writer := bufio.NewWriter(f)
+
+	cache.persistTo(writer)
+}
 
 func main() {
 	flag.Parse()
@@ -33,9 +62,7 @@ func main() {
 	http.HandleFunc(cache.statisticsRoute, cache.statisticsHandler)
 	http.HandleFunc(cache.expanderRoute, cache.expanderHandler)
 
-	log.Println("loading persistence data from:", *persistence)
-	cache.loadPersistenceFile(*persistence)
-
+	unpersistFrom(&cache)
 	var server http.Server
 
 	idleConnectionsClosed := make(chan struct{})
@@ -51,8 +78,7 @@ func main() {
 			log.Printf("HTTP server Shutdown: %v", err)
 		}
 
-		log.Println("storing persistence data to:", *persistence)
-		cache.storePersistenceFile(*persistence)
+		persistTo(&cache)
 
 		close(idleConnectionsClosed)
 	}()

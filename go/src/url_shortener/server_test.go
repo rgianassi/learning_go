@@ -2,9 +2,11 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -179,27 +181,39 @@ func TestShortenHandler(t *testing.T) {
 	}
 }
 
-func TestPersistence(t *testing.T) {
+func TestPersistTo(t *testing.T) {
 	sut := newURLShortener()
 
-	longURL := "https:/github.com/develersrl/powersoft-hmi"
-	shortURL := "f63377"
+	const longURL = "https:/github.com/develersrl/powersoft-hmi"
+	const shortURL = "f63377"
+	var want = fmt.Sprintf(`{"%s":"%s"}`, shortURL, longURL)
+	var builder strings.Builder
 
 	sut.addURL(longURL, shortURL)
 
-	sut.storePersistenceFile(*persistence)
-
-	sut = newURLShortener()
-	sut.loadPersistenceFile(*persistence)
-
-	candidateLongURL, err := sut.getURL(shortURL)
-
-	if err != nil {
-		t.Errorf("Unexpected error but got: %s.", err)
+	if err := sut.persistTo(&builder); err != nil {
+		t.Fatalf("Unexpected error but got: %s.", err)
 	}
 
-	if longURL != candidateLongURL {
-		t.Errorf("Incorrect long URL value, got: %s, want: %s.", candidateLongURL, longURL)
+	got := strings.TrimSpace(builder.String())
+	if got != want {
+		t.Errorf("Incorrect persisted JSON, got: %s, want: %s", got, want)
+	}
+}
+
+func TestUnpersistFrom(t *testing.T) {
+	sut := newURLShortener()
+
+	const longURL = "https:/github.com/develersrl/powersoft-hmi"
+	const shortURL = "f63377"
+	var data = fmt.Sprintf(`{"%s": "%s"}`, shortURL, longURL)
+
+	if err := sut.unpersistFrom(strings.NewReader(data)); err != nil {
+		t.Fatalf("Unexpected error but got: %s.", err)
+	}
+
+	if longURL != sut.mappings[shortURL] {
+		t.Errorf("Incorrect long URL value, got: %s, want: %s.", sut.mappings[shortURL], longURL)
 	}
 
 	if sut.statistics.ServerStats.TotalURL != 1 {
