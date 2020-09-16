@@ -68,7 +68,7 @@ func (c *URLShortener) getURL(shortURL string) (string, error) {
 func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
 	serverAddress := r.Host
 	longURL := r.URL.Path[len(c.shortenRoute):]
-	shortURL := shorten(longURL)
+	shortURL := Shorten(longURL)
 
 	c.addURL(longURL, shortURL)
 

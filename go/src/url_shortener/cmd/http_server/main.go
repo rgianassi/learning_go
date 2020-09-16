@@ -89,7 +89,7 @@ func main() {
 
 		mappings: make(map[string]string),
 
-		statistics: NewStatsJSON(),
+		statistics: shorten.NewStatsJSON(),
 	}
 
 	setupHandlerFunctions(&cache)
