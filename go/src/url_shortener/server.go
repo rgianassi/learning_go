@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -10,8 +11,6 @@ import (
 
 // URLShortener URL shortener server data structure
 type URLShortener struct {
-	port int
-
 	expanderRoute   string
 	shortenRoute    string
 	statisticsRoute string
@@ -21,6 +20,27 @@ type URLShortener struct {
 	statistics StatsJSON
 
 	mux sync.Mutex
+}
+
+func (c *URLShortener) unpersistFrom(r io.Reader) error {
+	decoder := json.NewDecoder(r)
+
+	if err := decoder.Decode(&c.mappings); err != nil {
+		return err
+	}
+
+	c.statistics.updateTotalURL(int64(len(c.mappings)))
+	return nil
+}
+
+func (c *URLShortener) persistTo(w io.Writer) error {
+	encoder := json.NewEncoder(w)
+
+	if err := encoder.Encode(c.mappings); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *URLShortener) addURL(longURL, shortURL string) {
@@ -46,12 +66,13 @@ func (c *URLShortener) getURL(shortURL string) (string, error) {
 }
 
 func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
+	serverAddress := r.Host
 	longURL := r.URL.Path[len(c.shortenRoute):]
 	shortURL := shorten(longURL)
 
 	c.addURL(longURL, shortURL)
 
-	linkAddress := fmt.Sprintf("http://localhost:%v", c.port)
+	linkAddress := fmt.Sprintf("http://%s", serverAddress)
 	hrefAddress := fmt.Sprintf("%s/%s", linkAddress, shortURL)
 	hrefText := fmt.Sprintf("%s -> %s", shortURL, longURL)
 

@@ -2,16 +2,16 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
 func newURLShortener() URLShortener {
 	return URLShortener{
-		port: 9090,
-
 		expanderRoute:   "/",
 		shortenRoute:    "/shorten/",
 		statisticsRoute: "/statistics",
@@ -160,6 +160,7 @@ func TestShortenHandler(t *testing.T) {
 	sut := newURLShortener()
 
 	request := httptest.NewRequest("GET", "/shorten/https:/github.com/develersrl/powersoft-hmi", nil)
+	request.Host = *address
 	responseRecorder := httptest.NewRecorder()
 
 	sut.shortenHandler(responseRecorder, request)
@@ -178,5 +179,45 @@ func TestShortenHandler(t *testing.T) {
 
 	if string(body) != "<a href=\"http://localhost:9090/f63377\">f63377 -> https:/github.com/develersrl/powersoft-hmi</a>" {
 		t.Errorf("Incorrect body, got: %s, want: %s.", body, "<a href=\"http://localhost:9090/f63377\">f63377 -> https:/github.com/develersrl/powersoft-hmi</a>")
+	}
+}
+
+func TestPersistTo(t *testing.T) {
+	sut := newURLShortener()
+
+	const longURL = "https:/github.com/develersrl/powersoft-hmi"
+	const shortURL = "f63377"
+	var want = fmt.Sprintf(`{"%s":"%s"}`, shortURL, longURL)
+	var builder strings.Builder
+
+	sut.addURL(longURL, shortURL)
+
+	if err := sut.persistTo(&builder); err != nil {
+		t.Fatalf("Unexpected error but got: %s.", err)
+	}
+
+	got := strings.TrimSpace(builder.String())
+	if got != want {
+		t.Errorf("Incorrect persisted JSON, got: %s, want: %s", got, want)
+	}
+}
+
+func TestUnpersistFrom(t *testing.T) {
+	sut := newURLShortener()
+
+	const longURL = "https:/github.com/develersrl/powersoft-hmi"
+	const shortURL = "f63377"
+	var data = fmt.Sprintf(`{"%s": "%s"}`, shortURL, longURL)
+
+	if err := sut.unpersistFrom(strings.NewReader(data)); err != nil {
+		t.Fatalf("Unexpected error but got: %s.", err)
+	}
+
+	if longURL != sut.mappings[shortURL] {
+		t.Errorf("Incorrect long URL value, got: %s, want: %s.", sut.mappings[shortURL], longURL)
+	}
+
+	if sut.statistics.ServerStats.TotalURL != 1 {
+		t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.statistics.ServerStats.TotalURL, 1)
 	}
 }
