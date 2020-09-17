@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/rgianassi/learning/go/src/url_shortener/shorten"
 )
 
 var (
@@ -22,13 +24,14 @@ func unpersist(cache *shorten.URLShortener) {
 
 	f, err := os.Open(*persistence)
 	if err != nil {
-		log.Fatalln("error unpersisting:", err)
+		log.Println("error unpersisting:", err)
+	} else {
+		defer f.Close()
 	}
-	defer f.Close()
 
 	reader := bufio.NewReader(f)
 
-	cache.unpersistFrom(reader)
+	cache.UnpersistFrom(reader)
 }
 
 func persist(cache *shorten.URLShortener) {
@@ -42,13 +45,13 @@ func persist(cache *shorten.URLShortener) {
 
 	writer := bufio.NewWriter(f)
 
-	cache.persistTo(writer)
+	cache.PersistTo(writer)
 }
 
 func setupHandlerFunctions(cache *shorten.URLShortener) {
-	http.HandleFunc(cache.shortenRoute, cache.shortenHandler)
-	http.HandleFunc(cache.statisticsRoute, cache.statisticsHandler)
-	http.HandleFunc(cache.expanderRoute, cache.expanderHandler)
+	http.HandleFunc(cache.ShortenRoute, cache.ShortenHandler)
+	http.HandleFunc(cache.StatisticsRoute, cache.StatisticsHandler)
+	http.HandleFunc(cache.ExpanderRoute, cache.ExpanderHandler)
 }
 
 func setupHTTPServerShutdown(cache *shorten.URLShortener, server *http.Server, idleConnectionsClosed chan struct{}) {
@@ -83,13 +86,13 @@ func main() {
 	server.Addr = fmt.Sprintf("%s", *address)
 
 	cache := shorten.URLShortener{
-		expanderRoute:   "/",
-		shortenRoute:    "/shorten/",
-		statisticsRoute: "/statistics",
+		ExpanderRoute:   "/",
+		ShortenRoute:    "/shorten/",
+		StatisticsRoute: "/statistics",
 
-		mappings: make(map[string]string),
+		Mappings: make(map[string]string),
 
-		statistics: shorten.NewStatsJSON(),
+		Statistics: shorten.NewStatsJSON(),
 	}
 
 	setupHandlerFunctions(&cache)

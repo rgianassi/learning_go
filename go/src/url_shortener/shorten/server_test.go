@@ -12,13 +12,13 @@ import (
 
 func newURLShortener() URLShortener {
 	return URLShortener{
-		expanderRoute:   "/",
-		shortenRoute:    "/shorten/",
-		statisticsRoute: "/statistics",
+		ExpanderRoute:   "/",
+		ShortenRoute:    "/shorten/",
+		StatisticsRoute: "/statistics",
 
-		mappings: make(map[string]string),
+		Mappings: make(map[string]string),
 
-		statistics: NewStatsJSON(),
+		Statistics: NewStatsJSON(),
 	}
 }
 
@@ -38,8 +38,8 @@ func TestAddURL(t *testing.T) {
 
 	for _, test := range tests {
 		sut.addURL(test.longURL, test.shortURL)
-		if sut.statistics.ServerStats.TotalURL != test.wantTotalURL {
-			t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.statistics.ServerStats.TotalURL, test.wantTotalURL)
+		if sut.Statistics.ServerStats.TotalURL != test.wantTotalURL {
+			t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.Statistics.ServerStats.TotalURL, test.wantTotalURL)
 		}
 	}
 }
@@ -90,7 +90,7 @@ func TestExpanderHandler(t *testing.T) {
 	request := httptest.NewRequest("GET", "/f63377d", nil)
 	responseRecorder := httptest.NewRecorder()
 
-	sut.expanderHandler(responseRecorder, request)
+	sut.ExpanderHandler(responseRecorder, request)
 
 	response := responseRecorder.Result()
 
@@ -105,7 +105,7 @@ func TestExpanderHandler(t *testing.T) {
 	request = httptest.NewRequest("GET", "/123456", nil)
 	responseRecorder = httptest.NewRecorder()
 
-	sut.expanderHandler(responseRecorder, request)
+	sut.ExpanderHandler(responseRecorder, request)
 
 	response = responseRecorder.Result()
 
@@ -120,7 +120,7 @@ func TestStatisticsHandler(t *testing.T) {
 	request := httptest.NewRequest("GET", "/statistics", nil)
 	responseRecorder := httptest.NewRecorder()
 
-	sut.statisticsHandler(responseRecorder, request)
+	sut.StatisticsHandler(responseRecorder, request)
 
 	response := responseRecorder.Result()
 
@@ -135,7 +135,7 @@ func TestStatisticsHandler(t *testing.T) {
 	request = httptest.NewRequest("GET", "/statistics?format=json", nil)
 	responseRecorder = httptest.NewRecorder()
 
-	sut.statisticsHandler(responseRecorder, request)
+	sut.StatisticsHandler(responseRecorder, request)
 
 	response = responseRecorder.Result()
 
@@ -163,7 +163,7 @@ func TestShortenHandler(t *testing.T) {
 	request.Host = "localhost:9090"
 	responseRecorder := httptest.NewRecorder()
 
-	sut.shortenHandler(responseRecorder, request)
+	sut.ShortenHandler(responseRecorder, request)
 
 	response := responseRecorder.Result()
 
@@ -192,7 +192,7 @@ func TestPersistTo(t *testing.T) {
 
 	sut.addURL(longURL, shortURL)
 
-	if err := sut.persistTo(&builder); err != nil {
+	if err := sut.PersistTo(&builder); err != nil {
 		t.Fatalf("Unexpected error but got: %s.", err)
 	}
 
@@ -209,15 +209,15 @@ func TestUnpersistFrom(t *testing.T) {
 	const shortURL = "f63377d"
 	var data = fmt.Sprintf(`{"%s": "%s"}`, shortURL, longURL)
 
-	if err := sut.unpersistFrom(strings.NewReader(data)); err != nil {
+	if err := sut.UnpersistFrom(strings.NewReader(data)); err != nil {
 		t.Fatalf("Unexpected error but got: %s.", err)
 	}
 
-	if longURL != sut.mappings[shortURL] {
-		t.Errorf("Incorrect long URL value, got: %s, want: %s.", sut.mappings[shortURL], longURL)
+	if longURL != sut.Mappings[shortURL] {
+		t.Errorf("Incorrect long URL value, got: %s, want: %s.", sut.Mappings[shortURL], longURL)
 	}
 
-	if sut.statistics.ServerStats.TotalURL != 1 {
-		t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.statistics.ServerStats.TotalURL, 1)
+	if sut.Statistics.ServerStats.TotalURL != 1 {
+		t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.Statistics.ServerStats.TotalURL, 1)
 	}
 }
