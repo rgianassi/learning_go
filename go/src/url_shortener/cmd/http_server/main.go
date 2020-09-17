@@ -10,6 +10,8 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/rgianassi/learning/go/src/url_shortener/shorten"
 )
 
 var (
@@ -17,21 +19,22 @@ var (
 	persistence = flag.String("load", "persistence.json", "persistence JSON file for URLs")
 )
 
-func unpersist(cache *URLShortener) {
+func unpersist(cache *shorten.URLShortener) {
 	log.Println("loading persistence data from:", *persistence)
 
 	f, err := os.Open(*persistence)
 	if err != nil {
-		log.Fatalln("error unpersisting:", err)
+		log.Println("error unpersisting:", err)
+	} else {
+		defer f.Close()
 	}
-	defer f.Close()
 
 	reader := bufio.NewReader(f)
 
-	cache.unpersistFrom(reader)
+	cache.UnpersistFrom(reader)
 }
 
-func persist(cache *URLShortener) {
+func persist(cache *shorten.URLShortener) {
 	log.Println("storing persistence data to:", *persistence)
 
 	f, err := os.Open(*persistence)
@@ -42,16 +45,10 @@ func persist(cache *URLShortener) {
 
 	writer := bufio.NewWriter(f)
 
-	cache.persistTo(writer)
+	cache.PersistTo(writer)
 }
 
-func setupHandlerFunctions(cache *URLShortener) {
-	http.HandleFunc(cache.shortenRoute, cache.shortenHandler)
-	http.HandleFunc(cache.statisticsRoute, cache.statisticsHandler)
-	http.HandleFunc(cache.expanderRoute, cache.expanderHandler)
-}
-
-func setupHTTPServerShutdown(cache *URLShortener, server *http.Server, idleConnectionsClosed chan struct{}) {
+func setupHTTPServerShutdown(cache *shorten.URLShortener, server *http.Server, idleConnectionsClosed chan struct{}) {
 	signalChannel := make(chan os.Signal, 1)
 
 	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGKILL)
@@ -82,20 +79,12 @@ func main() {
 	var server http.Server
 	server.Addr = fmt.Sprintf("%s", *address)
 
-	cache := URLShortener{
-		expanderRoute:   "/",
-		shortenRoute:    "/shorten/",
-		statisticsRoute: "/statistics",
+	cache := shorten.NewURLShortener()
 
-		mappings: make(map[string]string),
+	cache.SetupHandlerFunctions()
+	unpersist(cache)
 
-		statistics: NewStatsJSON(),
-	}
-
-	setupHandlerFunctions(&cache)
-	unpersist(&cache)
-
-	go setupHTTPServerShutdown(&cache, &server, idleConnectionsClosed)
+	go setupHTTPServerShutdown(cache, &server, idleConnectionsClosed)
 
 	launchHTTPServer(&server)
 

@@ -1,4 +1,4 @@
-package main
+package shorten
 
 import (
 	"encoding/json"
@@ -10,20 +10,8 @@ import (
 	"testing"
 )
 
-func newURLShortener() URLShortener {
-	return URLShortener{
-		expanderRoute:   "/",
-		shortenRoute:    "/shorten/",
-		statisticsRoute: "/statistics",
-
-		mappings: make(map[string]string),
-
-		statistics: NewStatsJSON(),
-	}
-}
-
 func TestAddURL(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	tests := []struct {
 		longURL      string
@@ -45,7 +33,7 @@ func TestAddURL(t *testing.T) {
 }
 
 func TestGetURL(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	tests := []struct {
 		shortURL    string
@@ -81,13 +69,13 @@ func TestGetURL(t *testing.T) {
 }
 
 func TestExpanderHandler(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	longURL := "https:/github.com/develersrl/powersoft-hmi"
-	shortURL := "f63377"
+	shortURL := "f63377d"
 	sut.addURL(longURL, shortURL)
 
-	request := httptest.NewRequest("GET", "/f63377", nil)
+	request := httptest.NewRequest("GET", "/f63377d", nil)
 	responseRecorder := httptest.NewRecorder()
 
 	sut.expanderHandler(responseRecorder, request)
@@ -115,7 +103,7 @@ func TestExpanderHandler(t *testing.T) {
 }
 
 func TestStatisticsHandler(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	request := httptest.NewRequest("GET", "/statistics", nil)
 	responseRecorder := httptest.NewRecorder()
@@ -157,10 +145,10 @@ func TestStatisticsHandler(t *testing.T) {
 }
 
 func TestShortenHandler(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	request := httptest.NewRequest("GET", "/shorten/https:/github.com/develersrl/powersoft-hmi", nil)
-	request.Host = *address
+	request.Host = "localhost:9090"
 	responseRecorder := httptest.NewRecorder()
 
 	sut.shortenHandler(responseRecorder, request)
@@ -177,22 +165,22 @@ func TestShortenHandler(t *testing.T) {
 
 	body, _ := ioutil.ReadAll(response.Body)
 
-	if string(body) != "<a href=\"http://localhost:9090/f63377\">f63377 -> https:/github.com/develersrl/powersoft-hmi</a>" {
-		t.Errorf("Incorrect body, got: %s, want: %s.", body, "<a href=\"http://localhost:9090/f63377\">f63377 -> https:/github.com/develersrl/powersoft-hmi</a>")
+	if string(body) != "<a href=\"http://localhost:9090/f63377d\">f63377d -> https:/github.com/develersrl/powersoft-hmi</a>" {
+		t.Errorf("Incorrect body, got: %s, want: %s.", body, "<a href=\"http://localhost:9090/f63377d\">f63377d -> https:/github.com/develersrl/powersoft-hmi</a>")
 	}
 }
 
 func TestPersistTo(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	const longURL = "https:/github.com/develersrl/powersoft-hmi"
-	const shortURL = "f63377"
+	const shortURL = "f63377d"
 	var want = fmt.Sprintf(`{"%s":"%s"}`, shortURL, longURL)
 	var builder strings.Builder
 
 	sut.addURL(longURL, shortURL)
 
-	if err := sut.persistTo(&builder); err != nil {
+	if err := sut.PersistTo(&builder); err != nil {
 		t.Fatalf("Unexpected error but got: %s.", err)
 	}
 
@@ -203,13 +191,13 @@ func TestPersistTo(t *testing.T) {
 }
 
 func TestUnpersistFrom(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	const longURL = "https:/github.com/develersrl/powersoft-hmi"
-	const shortURL = "f63377"
+	const shortURL = "f63377d"
 	var data = fmt.Sprintf(`{"%s": "%s"}`, shortURL, longURL)
 
-	if err := sut.unpersistFrom(strings.NewReader(data)); err != nil {
+	if err := sut.UnpersistFrom(strings.NewReader(data)); err != nil {
 		t.Fatalf("Unexpected error but got: %s.", err)
 	}
 

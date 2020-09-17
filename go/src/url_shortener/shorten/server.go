@@ -1,4 +1,4 @@
-package main
+package shorten
 
 import (
 	"encoding/json"
@@ -22,7 +22,24 @@ type URLShortener struct {
 	mux sync.Mutex
 }
 
-func (c *URLShortener) unpersistFrom(r io.Reader) error {
+// NewURLShortener a URLShortener constructor
+func NewURLShortener() *URLShortener {
+	urlShortener := URLShortener{}
+
+	urlShortener.expanderRoute = "/"
+	urlShortener.shortenRoute = "/shorten/"
+	urlShortener.statisticsRoute = "/statistics"
+
+	urlShortener.mappings = make(map[string]string)
+
+	urlShortener.statistics = NewStatsJSON()
+
+	return &urlShortener
+}
+
+// UnpersistFrom function reads and decodes a JSON from the reader passed in
+// and then updates the URL mappings
+func (c *URLShortener) UnpersistFrom(r io.Reader) error {
 	decoder := json.NewDecoder(r)
 
 	if err := decoder.Decode(&c.mappings); err != nil {
@@ -33,7 +50,9 @@ func (c *URLShortener) unpersistFrom(r io.Reader) error {
 	return nil
 }
 
-func (c *URLShortener) persistTo(w io.Writer) error {
+// PersistTo function encodes the URL mappings in a JSON written to the writer
+// passed in
+func (c *URLShortener) PersistTo(w io.Writer) error {
 	encoder := json.NewEncoder(w)
 
 	if err := encoder.Encode(c.mappings); err != nil {
@@ -41,6 +60,13 @@ func (c *URLShortener) persistTo(w io.Writer) error {
 	}
 
 	return nil
+}
+
+// SetupHandlerFunctions setups handler functions
+func (c *URLShortener) SetupHandlerFunctions() {
+	http.HandleFunc(c.shortenRoute, c.shortenHandler)
+	http.HandleFunc(c.statisticsRoute, c.statisticsHandler)
+	http.HandleFunc(c.expanderRoute, c.expanderHandler)
 }
 
 func (c *URLShortener) addURL(longURL, shortURL string) {
@@ -68,7 +94,7 @@ func (c *URLShortener) getURL(shortURL string) (string, error) {
 func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
 	serverAddress := r.Host
 	longURL := r.URL.Path[len(c.shortenRoute):]
-	shortURL := shorten(longURL)
+	shortURL := Shorten(longURL)
 
 	c.addURL(longURL, shortURL)
 
