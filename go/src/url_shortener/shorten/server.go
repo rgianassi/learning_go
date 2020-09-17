@@ -11,15 +11,30 @@ import (
 
 // URLShortener URL shortener server data structure
 type URLShortener struct {
-	ExpanderRoute   string
-	ShortenRoute    string
-	StatisticsRoute string
+	expanderRoute   string
+	shortenRoute    string
+	statisticsRoute string
 
-	Mappings map[string]string
+	mappings map[string]string
 
-	Statistics StatsJSON
+	statistics StatsJSON
 
 	mux sync.Mutex
+}
+
+// NewURLShortener a URLShortener constructor
+func NewURLShortener() *URLShortener {
+	urlShortener := URLShortener{}
+
+	urlShortener.expanderRoute = "/"
+	urlShortener.shortenRoute = "/shorten/"
+	urlShortener.statisticsRoute = "/statistics"
+
+	urlShortener.mappings = make(map[string]string)
+
+	urlShortener.statistics = NewStatsJSON()
+
+	return &urlShortener
 }
 
 // UnpersistFrom function reads and decodes a JSON from the reader passed in
@@ -27,11 +42,11 @@ type URLShortener struct {
 func (c *URLShortener) UnpersistFrom(r io.Reader) error {
 	decoder := json.NewDecoder(r)
 
-	if err := decoder.Decode(&c.Mappings); err != nil {
+	if err := decoder.Decode(&c.mappings); err != nil {
 		return err
 	}
 
-	c.Statistics.updateTotalURL(int64(len(c.Mappings)))
+	c.statistics.updateTotalURL(int64(len(c.mappings)))
 	return nil
 }
 
@@ -40,27 +55,34 @@ func (c *URLShortener) UnpersistFrom(r io.Reader) error {
 func (c *URLShortener) PersistTo(w io.Writer) error {
 	encoder := json.NewEncoder(w)
 
-	if err := encoder.Encode(c.Mappings); err != nil {
+	if err := encoder.Encode(c.mappings); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+// SetupHandlerFunctions setups handler functions
+func (c *URLShortener) SetupHandlerFunctions() {
+	http.HandleFunc(c.shortenRoute, c.shortenHandler)
+	http.HandleFunc(c.statisticsRoute, c.statisticsHandler)
+	http.HandleFunc(c.expanderRoute, c.expanderHandler)
+}
+
 func (c *URLShortener) addURL(longURL, shortURL string) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	c.Mappings[shortURL] = longURL
+	c.mappings[shortURL] = longURL
 
-	c.Statistics.updateTotalURL(int64(len(c.Mappings)))
+	c.statistics.updateTotalURL(int64(len(c.mappings)))
 }
 
 func (c *URLShortener) getURL(shortURL string) (string, error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	longURL, ok := c.Mappings[shortURL]
+	longURL, ok := c.mappings[shortURL]
 
 	if !ok {
 		return "", fmt.Errorf("short URL not found: %s", shortURL)
@@ -69,10 +91,9 @@ func (c *URLShortener) getURL(shortURL string) (string, error) {
 	return longURL, nil
 }
 
-// ShortenHandler is the shorten handler
-func (c *URLShortener) ShortenHandler(w http.ResponseWriter, r *http.Request) {
+func (c *URLShortener) shortenHandler(w http.ResponseWriter, r *http.Request) {
 	serverAddress := r.Host
-	longURL := r.URL.Path[len(c.ShortenRoute):]
+	longURL := r.URL.Path[len(c.shortenRoute):]
 	shortURL := Shorten(longURL)
 
 	c.addURL(longURL, shortURL)
@@ -82,45 +103,43 @@ func (c *URLShortener) ShortenHandler(w http.ResponseWriter, r *http.Request) {
 	hrefText := fmt.Sprintf("%s -> %s", shortURL, longURL)
 
 	fmt.Fprintf(w, "<a href=\"%s\">%s</a>", hrefAddress, hrefText)
-	c.Statistics.incrementHandlerCounter(ShortenHandlerIndex, true)
+	c.statistics.incrementHandlerCounter(ShortenHandlerIndex, true)
 }
 
-// StatisticsHandler is the statistics handler
-func (c *URLShortener) StatisticsHandler(w http.ResponseWriter, r *http.Request) {
+func (c *URLShortener) statisticsHandler(w http.ResponseWriter, r *http.Request) {
 	url := r.URL
 	query := url.Query()
 	format := query.Get("format")
 
 	if f := strings.ToLower(format); f == "json" {
-		jsonCandidate, err := json.Marshal(&c.Statistics)
+		jsonCandidate, err := json.Marshal(&c.statistics)
 
 		if err != nil {
 			w.WriteHeader(http.StatusNoContent)
-			c.Statistics.incrementHandlerCounter(StatisticsHandlerIndex, false)
+			c.statistics.incrementHandlerCounter(StatisticsHandlerIndex, false)
 			return
 		}
 
 		fmt.Fprintf(w, "%s", jsonCandidate)
-		c.Statistics.incrementHandlerCounter(StatisticsHandlerIndex, true)
+		c.statistics.incrementHandlerCounter(StatisticsHandlerIndex, true)
 		return
 	}
 
-	fmt.Fprintf(w, "%s", &c.Statistics)
-	c.Statistics.incrementHandlerCounter(StatisticsHandlerIndex, true)
+	fmt.Fprintf(w, "%s", &c.statistics)
+	c.statistics.incrementHandlerCounter(StatisticsHandlerIndex, true)
 }
 
-// ExpanderHandler is the expander handler
-func (c *URLShortener) ExpanderHandler(w http.ResponseWriter, r *http.Request) {
-	shortURLCandidate := r.URL.Path[len(c.ExpanderRoute):]
+func (c *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Request) {
+	shortURLCandidate := r.URL.Path[len(c.expanderRoute):]
 
 	redirectURL, err := c.getURL(shortURLCandidate)
 
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
-		c.Statistics.incrementHandlerCounter(ExpanderHandlerIndex, false)
+		c.statistics.incrementHandlerCounter(ExpanderHandlerIndex, false)
 		return
 	}
 
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
-	c.Statistics.incrementHandlerCounter(ExpanderHandlerIndex, true)
+	c.statistics.incrementHandlerCounter(ExpanderHandlerIndex, true)
 }

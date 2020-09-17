@@ -48,12 +48,6 @@ func persist(cache *shorten.URLShortener) {
 	cache.PersistTo(writer)
 }
 
-func setupHandlerFunctions(cache *shorten.URLShortener) {
-	http.HandleFunc(cache.ShortenRoute, cache.ShortenHandler)
-	http.HandleFunc(cache.StatisticsRoute, cache.StatisticsHandler)
-	http.HandleFunc(cache.ExpanderRoute, cache.ExpanderHandler)
-}
-
 func setupHTTPServerShutdown(cache *shorten.URLShortener, server *http.Server, idleConnectionsClosed chan struct{}) {
 	signalChannel := make(chan os.Signal, 1)
 
@@ -85,20 +79,12 @@ func main() {
 	var server http.Server
 	server.Addr = fmt.Sprintf("%s", *address)
 
-	cache := shorten.URLShortener{
-		ExpanderRoute:   "/",
-		ShortenRoute:    "/shorten/",
-		StatisticsRoute: "/statistics",
+	cache := shorten.NewURLShortener()
 
-		Mappings: make(map[string]string),
+	cache.SetupHandlerFunctions()
+	unpersist(cache)
 
-		Statistics: shorten.NewStatsJSON(),
-	}
-
-	setupHandlerFunctions(&cache)
-	unpersist(&cache)
-
-	go setupHTTPServerShutdown(&cache, &server, idleConnectionsClosed)
+	go setupHTTPServerShutdown(cache, &server, idleConnectionsClosed)
 
 	launchHTTPServer(&server)
 

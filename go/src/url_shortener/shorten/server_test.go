@@ -10,20 +10,8 @@ import (
 	"testing"
 )
 
-func newURLShortener() URLShortener {
-	return URLShortener{
-		ExpanderRoute:   "/",
-		ShortenRoute:    "/shorten/",
-		StatisticsRoute: "/statistics",
-
-		Mappings: make(map[string]string),
-
-		Statistics: NewStatsJSON(),
-	}
-}
-
 func TestAddURL(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	tests := []struct {
 		longURL      string
@@ -38,14 +26,14 @@ func TestAddURL(t *testing.T) {
 
 	for _, test := range tests {
 		sut.addURL(test.longURL, test.shortURL)
-		if sut.Statistics.ServerStats.TotalURL != test.wantTotalURL {
-			t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.Statistics.ServerStats.TotalURL, test.wantTotalURL)
+		if sut.statistics.ServerStats.TotalURL != test.wantTotalURL {
+			t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.statistics.ServerStats.TotalURL, test.wantTotalURL)
 		}
 	}
 }
 
 func TestGetURL(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	tests := []struct {
 		shortURL    string
@@ -81,7 +69,7 @@ func TestGetURL(t *testing.T) {
 }
 
 func TestExpanderHandler(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	longURL := "https:/github.com/develersrl/powersoft-hmi"
 	shortURL := "f63377d"
@@ -90,7 +78,7 @@ func TestExpanderHandler(t *testing.T) {
 	request := httptest.NewRequest("GET", "/f63377d", nil)
 	responseRecorder := httptest.NewRecorder()
 
-	sut.ExpanderHandler(responseRecorder, request)
+	sut.expanderHandler(responseRecorder, request)
 
 	response := responseRecorder.Result()
 
@@ -105,7 +93,7 @@ func TestExpanderHandler(t *testing.T) {
 	request = httptest.NewRequest("GET", "/123456", nil)
 	responseRecorder = httptest.NewRecorder()
 
-	sut.ExpanderHandler(responseRecorder, request)
+	sut.expanderHandler(responseRecorder, request)
 
 	response = responseRecorder.Result()
 
@@ -115,12 +103,12 @@ func TestExpanderHandler(t *testing.T) {
 }
 
 func TestStatisticsHandler(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	request := httptest.NewRequest("GET", "/statistics", nil)
 	responseRecorder := httptest.NewRecorder()
 
-	sut.StatisticsHandler(responseRecorder, request)
+	sut.statisticsHandler(responseRecorder, request)
 
 	response := responseRecorder.Result()
 
@@ -135,7 +123,7 @@ func TestStatisticsHandler(t *testing.T) {
 	request = httptest.NewRequest("GET", "/statistics?format=json", nil)
 	responseRecorder = httptest.NewRecorder()
 
-	sut.StatisticsHandler(responseRecorder, request)
+	sut.statisticsHandler(responseRecorder, request)
 
 	response = responseRecorder.Result()
 
@@ -157,13 +145,13 @@ func TestStatisticsHandler(t *testing.T) {
 }
 
 func TestShortenHandler(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	request := httptest.NewRequest("GET", "/shorten/https:/github.com/develersrl/powersoft-hmi", nil)
 	request.Host = "localhost:9090"
 	responseRecorder := httptest.NewRecorder()
 
-	sut.ShortenHandler(responseRecorder, request)
+	sut.shortenHandler(responseRecorder, request)
 
 	response := responseRecorder.Result()
 
@@ -183,7 +171,7 @@ func TestShortenHandler(t *testing.T) {
 }
 
 func TestPersistTo(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	const longURL = "https:/github.com/develersrl/powersoft-hmi"
 	const shortURL = "f63377d"
@@ -203,7 +191,7 @@ func TestPersistTo(t *testing.T) {
 }
 
 func TestUnpersistFrom(t *testing.T) {
-	sut := newURLShortener()
+	sut := NewURLShortener()
 
 	const longURL = "https:/github.com/develersrl/powersoft-hmi"
 	const shortURL = "f63377d"
@@ -213,11 +201,11 @@ func TestUnpersistFrom(t *testing.T) {
 		t.Fatalf("Unexpected error but got: %s.", err)
 	}
 
-	if longURL != sut.Mappings[shortURL] {
-		t.Errorf("Incorrect long URL value, got: %s, want: %s.", sut.Mappings[shortURL], longURL)
+	if longURL != sut.mappings[shortURL] {
+		t.Errorf("Incorrect long URL value, got: %s, want: %s.", sut.mappings[shortURL], longURL)
 	}
 
-	if sut.Statistics.ServerStats.TotalURL != 1 {
-		t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.Statistics.ServerStats.TotalURL, 1)
+	if sut.statistics.ServerStats.TotalURL != 1 {
+		t.Errorf("Incorrect total URL value, got: %v, want: %v.", sut.statistics.ServerStats.TotalURL, 1)
 	}
 }
