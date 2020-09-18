@@ -6,4 +6,9 @@ build/
 #
 # Persistence file
 # -----------------
-src/url_shortener/persistence.json
+persistence.json
+
+#
+# Executables
+# -----------------
+main

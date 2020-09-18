@@ -37,7 +37,7 @@ func unpersist(cache *shorten.URLShortener) {
 func persist(cache *shorten.URLShortener) {
 	log.Println("storing persistence data to:", *persistence)
 
-	f, err := os.Open(*persistence)
+	f, err := os.Create(*persistence)
 	if err != nil {
 		log.Fatalln("error persisting:", err)
 	}
@@ -45,7 +45,12 @@ func persist(cache *shorten.URLShortener) {
 
 	writer := bufio.NewWriter(f)
 
-	cache.PersistTo(writer)
+	if err := cache.PersistTo(writer); err != nil {
+		log.Println("error persisting writer:", err)
+	}
+
+	writer.Flush()
+	f.Sync()
 }
 
 func setupHTTPServerShutdown(cache *shorten.URLShortener, server *http.Server, idleConnectionsClosed chan struct{}) {
@@ -56,11 +61,12 @@ func setupHTTPServerShutdown(cache *shorten.URLShortener, server *http.Server, i
 	<-signalChannel
 
 	log.Println("shutting down...")
+
+	persist(cache)
+
 	if err := server.Shutdown(context.Background()); err != nil {
 		log.Printf("HTTP server Shutdown error: %v", err)
 	}
-
-	persist(cache)
 
 	close(idleConnectionsClosed)
 }
