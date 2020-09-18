@@ -71,11 +71,11 @@ func TestGetURL(t *testing.T) {
 func TestExpanderHandler(t *testing.T) {
 	sut := NewURLShortener()
 
-	longURL := "https:/github.com/develersrl/powersoft-hmi"
-	shortURL := "f63377d"
+	longURL := "https://github.com/develersrl/powersoft-hmi"
+	shortURL := "4611ce1"
 	sut.addURL(longURL, shortURL)
 
-	request := httptest.NewRequest("GET", "/f63377d", nil)
+	request := httptest.NewRequest("GET", "/4611ce1", nil)
 	responseRecorder := httptest.NewRecorder()
 
 	sut.expanderHandler(responseRecorder, request)
@@ -147,7 +147,7 @@ func TestStatisticsHandler(t *testing.T) {
 func TestShortenHandler(t *testing.T) {
 	sut := NewURLShortener()
 
-	request := httptest.NewRequest("GET", "/shorten/https:/github.com/develersrl/powersoft-hmi", nil)
+	request := httptest.NewRequest("GET", "/shorten?url=https://github.com/develersrl/powersoft-hmi", nil)
 	request.Host = "localhost:9090"
 	responseRecorder := httptest.NewRecorder()
 
@@ -165,16 +165,16 @@ func TestShortenHandler(t *testing.T) {
 
 	body, _ := ioutil.ReadAll(response.Body)
 
-	if string(body) != "<a href=\"http://localhost:9090/f63377d\">f63377d -> https:/github.com/develersrl/powersoft-hmi</a>" {
-		t.Errorf("Incorrect body, got: %s, want: %s.", body, "<a href=\"http://localhost:9090/f63377d\">f63377d -> https:/github.com/develersrl/powersoft-hmi</a>")
+	if string(body) != "<a href=\"http://localhost:9090/4611ce1\">4611ce1 -> https://github.com/develersrl/powersoft-hmi</a>" {
+		t.Errorf("Incorrect body, got: %s, want: %s.", body, "<a href=\"http://localhost:9090/4611ce1\">4611ce1 -> https://github.com/develersrl/powersoft-hmi</a>")
 	}
 }
 
 func TestPersistTo(t *testing.T) {
 	sut := NewURLShortener()
 
-	const longURL = "https:/github.com/develersrl/powersoft-hmi"
-	const shortURL = "f63377d"
+	const longURL = "https://github.com/develersrl/powersoft-hmi"
+	const shortURL = "4611ce1"
 	var want = fmt.Sprintf(`{"%s":"%s"}`, shortURL, longURL)
 	var builder strings.Builder
 
@@ -193,8 +193,8 @@ func TestPersistTo(t *testing.T) {
 func TestUnpersistFrom(t *testing.T) {
 	sut := NewURLShortener()
 
-	const longURL = "https:/github.com/develersrl/powersoft-hmi"
-	const shortURL = "f63377d"
+	const longURL = "https://github.com/develersrl/powersoft-hmi"
+	const shortURL = "4611ce1"
 	var data = fmt.Sprintf(`{"%s": "%s"}`, shortURL, longURL)
 
 	if err := sut.UnpersistFrom(strings.NewReader(data)); err != nil {
