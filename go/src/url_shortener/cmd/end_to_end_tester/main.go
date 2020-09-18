@@ -1,38 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"time"
+
+	"github.com/rgianassi/learning/go/src/url_shortener/shorten"
 )
 
-/*
-
-Write another program that performs an end to end test of the URL shortener:
-
-it starts an (already compiled) binary of the the url shortener server,
-in a sub process, with an already existing url file --load.
-
-using an HTTP client, it performs some HTTP requests of the different handlers
-
-it verifies their responses
-
-either exits 0 if all went well or exit 1 and write what went wrong on std out
-
-Scenario:
-
-call / on an non-existing SHA (check the http.StatusCode)
-
-call / on a existing SHA
-
-call /statistics, unmarshall the json and checks it
-
-*/
-
-func testNonExistentHash() {
+func testNonExistentHash() error {
 	client := &http.Client{}
 
 	fmt.Println("Test non existent hash")
@@ -41,78 +21,144 @@ func testNonExistentHash() {
 
 	if err != nil {
 		fmt.Println("Got error on get for non existent hash:", err)
-		os.Exit(1)
+		return err
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNotFound {
 		fmt.Println("Expected not found response on non existent hash, but got:", response.StatusCode)
-		os.Exit(1)
+		return err
 	}
+
+	return nil
 }
 
-func testDevelerHash() {
+func testWeatherHash() error {
 	client := &http.Client{}
 
-	fmt.Println("Test develer hash")
+	fmt.Println("Test weather hash")
 
-	response, err := client.Get("http://localhost:9090/ac60366")
+	const weatherURL = "https://wttr.in/Florence"
+
+	response, err := client.Get("http://localhost:9090/f495791")
 
 	if err != nil {
-		fmt.Println("Got error on get for develer hash:", err)
-		os.Exit(1)
+		fmt.Println("Got error on get for weather hash:", err)
+		return err
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		fmt.Println("Expected ok response on existent hash, but got:", response.StatusCode)
-		os.Exit(1)
+		return err
 	}
 
-	url, err := response.Location()
+	requestURL := response.Request.URL
+	url := requestURL.String()
 
-	if err != nil {
-		fmt.Println("Got error on develer location:", err)
-		os.Exit(1)
+	if url != weatherURL {
+		fmt.Println("Expected redirect to", weatherURL, ", but got:", url)
+		return err
 	}
 
-	if url.Path != "http://www.develer.com" {
-		fmt.Println("Expected redirect to http://www.develer.com, but got:", url.Path)
-		os.Exit(1)
-	}
+	return nil
 }
 
-func main() {
-	fmt.Println("Starting server...")
-	cmd := exec.Command("build/url_shortener/http_server", "--load", "build/url_shortener/persistence.json")
-	err := cmd.Start()
+func testStatisticsJSON() error {
+	client := &http.Client{}
+
+	fmt.Println("Test statistics JSON")
+
+	response, err := client.Get("http://localhost:9090/statistics?format=json")
+
 	if err != nil {
-		log.Fatalln(err)
+		fmt.Println("Got error on get for statistics JSON:", err)
+		return err
 	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		fmt.Println("Expected ok response on statistics JSON, but got:", response.StatusCode)
+		return err
+	}
+
+	decoder := json.NewDecoder(response.Body)
+
+	var stats shorten.StatsJSON
+
+	if err := decoder.Decode(&stats); err != nil {
+		fmt.Println("Unable to decode statistics JSON:", err)
+		return err
+	}
+
+	gotTotalURL := stats.ServerStats.TotalURL
+	if gotTotalURL != 1 {
+		fmt.Println("Expected TotalURL on statistics JSON to be 1, but got:", gotTotalURL)
+		return err
+	}
+
+	return nil
+}
+
+func trueMain() int {
+	fmt.Println("Starting server...")
+
+	executable := "build/url_shortener/http_server"
+	loadFlag := "--load"
+	loadParameter := "build/url_shortener/persistence.json"
+
+	cmd := exec.Command(executable, loadFlag, loadParameter)
+	err := cmd.Start()
+
+	if err != nil {
+		log.Println(err)
+		return 1
+	}
+
 	fmt.Println("Server started")
 
 	go func() {
 		fmt.Println("Waiting server...")
 		err := cmd.Wait()
-		log.Println("Command finished with error:", err)
+		log.Println("Server finished with error:", err)
 	}()
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(1 * time.Second) // to let the goroutine go
 
 	defer func() {
 		fmt.Println("Sending kill")
+
 		cmd.Process.Signal(os.Kill)
+
 		fmt.Println("Kill sent")
-		time.Sleep(1 * time.Second)
+
+		time.Sleep(1 * time.Second) // to let the kill kill
 	}()
 
 	fmt.Println("Starting test...")
 
-	testNonExistentHash()
-	testDevelerHash()
+	if err := testNonExistentHash(); err != nil {
+		return 1
+	}
+
+	if err := testWeatherHash(); err != nil {
+		return 1
+	}
+
+	if err := testStatisticsJSON(); err != nil {
+		return 1
+	}
 
 	fmt.Println("Exit")
-	os.Exit(0)
+
+	return 0
+}
+
+func main() {
+	exitCode := trueMain()
+
+	os.Exit(exitCode)
 }

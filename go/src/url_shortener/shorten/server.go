@@ -27,7 +27,7 @@ func NewURLShortener() *URLShortener {
 	urlShortener := URLShortener{}
 
 	urlShortener.expanderRoute = "/"
-	urlShortener.shortenRoute = "/shorten/"
+	urlShortener.shortenRoute = "/shorten"
 	urlShortener.statisticsRoute = "/statistics"
 
 	urlShortener.mappings = make(map[string]string)
