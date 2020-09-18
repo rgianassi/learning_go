@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"syscall"
 	"time"
 
 	"github.com/rgianassi/learning/go/src/url_shortener/shorten"
@@ -111,6 +112,8 @@ func trueMain() int {
 	loadParameter := "build/url_shortener/persistence.json"
 
 	cmd := exec.Command(executable, loadFlag, loadParameter)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	err := cmd.Start()
 
 	if err != nil {
@@ -129,11 +132,11 @@ func trueMain() int {
 	time.Sleep(1 * time.Second) // to let the goroutine go
 
 	defer func() {
-		fmt.Println("Sending kill")
+		fmt.Println("Sending CTRL+C")
 
-		cmd.Process.Signal(os.Kill)
+		cmd.Process.Signal(syscall.SIGINT)
 
-		fmt.Println("Kill sent")
+		fmt.Println("CTRL+C sent")
 
 		time.Sleep(1 * time.Second) // to let the kill kill
 	}()
@@ -156,6 +159,21 @@ func trueMain() int {
 
 	return 0
 }
+
+/*
+
+Scenario:
+
+1. call / on an non-existing SHA (check the http.StatusCode)
+2. call / on a existing SHA (loaded from the persistence file at startup)
+3. call /shorten with a new URL (that wasn't in the persistence file)
+4. call / with the SHA of the URL that has just been added
+        (check status code and ensure the redirect is working)
+5. call /statistics, unmarshall the json and checks that it corresponds to the actions taken
+6. terminate the http server
+7. verifies the content of the persistence file contains the URL added in step 3)
+
+*/
 
 func main() {
 	exitCode := trueMain()
