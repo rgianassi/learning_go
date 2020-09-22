@@ -52,7 +52,7 @@ func TestGetURL(t *testing.T) {
 	sut.addURL("w", "w")
 
 	for _, test := range tests {
-		longURL, err := sut.getURL(test.shortURL)
+		longURL, err := sut.GetURL(test.shortURL)
 
 		if !test.wantErr && err != nil {
 			t.Errorf("Unexpected error but got: %s.", err)

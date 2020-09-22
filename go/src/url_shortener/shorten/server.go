@@ -78,7 +78,8 @@ func (c *URLShortener) addURL(longURL, shortURL string) {
 	c.statistics.updateTotalURL(int64(len(c.mappings)))
 }
 
-func (c *URLShortener) getURL(shortURL string) (string, error) {
+// GetURL returns the complete URL corresponding to the shortened URL
+func (c *URLShortener) GetURL(shortURL string) (string, error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -135,7 +136,7 @@ func (c *URLShortener) statisticsHandler(w http.ResponseWriter, r *http.Request)
 func (c *URLShortener) expanderHandler(w http.ResponseWriter, r *http.Request) {
 	shortURLCandidate := r.URL.Path[len(c.expanderRoute):]
 
-	redirectURL, err := c.getURL(shortURLCandidate)
+	redirectURL, err := c.GetURL(shortURLCandidate)
 
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
