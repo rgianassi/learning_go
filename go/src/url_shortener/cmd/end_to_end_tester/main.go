@@ -223,7 +223,7 @@ func testURLAddedToPersistenceFile() error {
 	return nil
 }
 
-func trueMain(serverClosed chan struct{}) int {
+func trueMain() int {
 	cmd := exec.Command(serverExecutable, loadFlag, persistenceFile)
 	err := cmd.Start()
 
@@ -232,16 +232,12 @@ func trueMain(serverClosed chan struct{}) int {
 		return exitCodeError
 	}
 
-	go func(serverClosed chan struct{}) {
-		cmd.Wait()
-		close(serverClosed)
-	}(serverClosed)
-
 	time.Sleep(oneSecond) // to let the goroutine go
 
 	defer func() {
 		cmd.Process.Signal(syscall.SIGINT)
 		time.Sleep(oneSecond) // to let the kill kill
+		cmd.Wait()
 	}()
 
 	if err := testNonExistentHash(); err != nil {
@@ -268,16 +264,13 @@ func trueMain(serverClosed chan struct{}) int {
 }
 
 func main() {
-	serverClosed := make(chan struct{})
-
 	if err := copyFromFileToFile(sourcePersistenceFile, persistenceFile); err != nil {
 		log.Println("main: persistence file not copied. Error:", err)
 		os.Exit(exitCodeError)
 	}
 
-	exitCode := trueMain(serverClosed)
+	exitCode := trueMain()
 
-	<-serverClosed
 	if err := testURLAddedToPersistenceFile(); err != nil {
 		exitCode = exitCodeError
 	}
