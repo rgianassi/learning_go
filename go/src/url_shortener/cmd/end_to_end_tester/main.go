@@ -73,15 +73,13 @@ func testNonExistentHash() error {
 	response, err := client.Get(fullShortNonExistentURL)
 
 	if err != nil {
-		fmt.Println("got error on get for non existent hash:", err)
-		return err
+		return fmt.Errorf("testNonExistentHash: got error on get: %v", err)
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusNotFound {
-		fmt.Println("expected not found response on non existent hash, but got:", response.StatusCode)
-		return err
+		return fmt.Errorf("testNonExistentHash: unexpected status code: %v", response.StatusCode)
 	}
 
 	return nil
@@ -93,23 +91,20 @@ func testWeatherHash() error {
 	response, err := client.Get(fullShortWeatherURLFlorence)
 
 	if err != nil {
-		fmt.Println("got error on get for weather hash:", err)
-		return err
+		return fmt.Errorf("testWeatherHash: got error on get: %v", err)
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		fmt.Println("expected ok response on existent hash, but got:", response.StatusCode)
-		return err
+		return fmt.Errorf("testWeatherHash: unexpected status code: %v", response.StatusCode)
 	}
 
 	requestURL := response.Request.URL
 	url := requestURL.String()
 
 	if url != weatherURLFlorence {
-		fmt.Println("expected redirect to", weatherURLFlorence, ", but got:", url)
-		return err
+		return fmt.Errorf("testWeatherHash: unexpected URL, wanted: %v, got: %v", weatherURLFlorence, url)
 	}
 
 	return nil
@@ -121,15 +116,13 @@ func testStatisticsJSON() error {
 	response, err := client.Get(statisticsURL)
 
 	if err != nil {
-		fmt.Println("got error on get for statistics JSON:", err)
-		return err
+		return fmt.Errorf("testStatisticsJSON: got error on get: %v", err)
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		fmt.Println("expected ok response on statistics JSON, but got:", response.StatusCode)
-		return err
+		return fmt.Errorf("testStatisticsJSON: unexpected status code: %v", response.StatusCode)
 	}
 
 	decoder := json.NewDecoder(response.Body)
@@ -137,14 +130,12 @@ func testStatisticsJSON() error {
 	var stats shorten.StatsJSON
 
 	if err := decoder.Decode(&stats); err != nil {
-		fmt.Println("unable to decode statistics JSON:", err)
-		return err
+		return fmt.Errorf("testStatisticsJSON: unable to decode, error: %v", err)
 	}
 
 	gotTotalURL := stats.ServerStats.TotalURL
 	if gotTotalURL != 1 {
-		fmt.Println("expected TotalURL on statistics JSON to be 1, but got:", gotTotalURL)
-		return err
+		return fmt.Errorf("testStatisticsJSON: expected TotalURL on statistics JSON to be 1, but got: %v", gotTotalURL)
 	}
 
 	return nil
@@ -156,31 +147,26 @@ func testShortenURLAddingANonExistentURL() error {
 	response, err := client.Get(shortenWeatherURLRome)
 
 	if err != nil {
-		fmt.Println("got error on get for shorten weather URL:", err)
-		return err
+		return fmt.Errorf("testShortenURLAddingANonExistentURL: got error on get: %v", err)
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		fmt.Println("expected ok response for shorten weather URL, but got:", response.StatusCode)
-		return err
+		return fmt.Errorf("testShortenURLAddingANonExistentURL: unexpected status code: %v", response.StatusCode)
 	}
 
 	bodyByte, err := ioutil.ReadAll(response.Body)
 
 	if err != nil {
-		fmt.Println("got error for shorten weather URL reading body:", err)
-		return err
+		return fmt.Errorf("testShortenURLAddingANonExistentURL: error reading body: %v", err)
 	}
 
 	body := string(bodyByte)
 	re := regexp.MustCompile(shortURLRegExp)
 	gotShortURL := strings.TrimSpace(re.FindStringSubmatch(body)[1])
 	if gotShortURL == "" {
-		msg := "expected short URL on shorten weather URL call, but nothing got"
-		fmt.Println(msg)
-		return fmt.Errorf(msg)
+		return fmt.Errorf("testShortenURLAddingANonExistentURL: no short URL on shorten page")
 	}
 
 	return nil
@@ -192,23 +178,20 @@ func testRedirectURL() error {
 	response, err := client.Get(redirectURL)
 
 	if err != nil {
-		fmt.Println("got error on get for redirect weather URL hash:", err)
-		return err
+		return fmt.Errorf("testRedirectURL: got error on get: %v", err)
 	}
 
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		fmt.Println("expected ok response on redirect weather URL hash, but got:", response.StatusCode)
-		return err
+		return fmt.Errorf("testRedirectURL: unexpected status code: %v", response.StatusCode)
 	}
 
 	requestURL := response.Request.URL
 	url := requestURL.String()
 
 	if url != weatherURLRome {
-		fmt.Println("expected redirect to", weatherURLRome, ", but got:", url)
-		return err
+		return fmt.Errorf("testRedirectURL: wrong redirect, wanted: %v, got: %v", weatherURLRome, url)
 	}
 
 	return nil
@@ -219,26 +202,22 @@ func testURLAddedToPersistenceFile() error {
 
 	f, err := os.Open(persistenceFile)
 	if err != nil {
-		log.Println("error unpersisting URL added to persistence file:", err)
-		return err
+		return fmt.Errorf("testURLAddedToPersistenceFile: error opening persistence file: %v", err)
 	}
 	defer f.Close()
 
 	reader := bufio.NewReader(f)
 	if err := urlShortener.UnpersistFrom(reader); err != nil {
-		fmt.Println("unable to unpersist URL added to persistence file:", persistenceFile, "err:", err)
-		return err
+		return fmt.Errorf("testURLAddedToPersistenceFile: error unpersisting persistence file: %v", err)
 	}
 
 	gotLongURL, err := urlShortener.GetURL(shortWeatherURLRome)
 	if err != nil {
-		fmt.Println("unable to get URL added to persistence file:", err)
-		return err
+		return fmt.Errorf("testURLAddedToPersistenceFile: error on GetURL call: %v", err)
 	}
 
 	if weatherURLRome != gotLongURL {
-		fmt.Println("unable to find URL added to persistence file:", err)
-		return err
+		return fmt.Errorf("testURLAddedToPersistenceFile: persisted URL not found, wanted: %v, got: %v, error: %v", weatherURLRome, gotLongURL, err)
 	}
 
 	return nil
@@ -249,7 +228,7 @@ func trueMain(serverClosed chan struct{}) int {
 	err := cmd.Start()
 
 	if err != nil {
-		log.Println(err)
+		log.Println("trueMain: error starting server:", err)
 		return exitCodeError
 	}
 
@@ -292,7 +271,7 @@ func main() {
 	serverClosed := make(chan struct{})
 
 	if err := copy(sourcePersistenceFile, persistenceFile); err != nil {
-		log.Println("persistence file not copied. Error:", err)
+		log.Println("main: persistence file not copied. Error:", err)
 		os.Exit(exitCodeError)
 	}
 
