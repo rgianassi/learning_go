@@ -46,7 +46,7 @@ const (
 )
 
 // https://stackoverflow.com/a/21061062
-func copy(src, dst string) error {
+func copyFromFileToFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -270,7 +270,7 @@ func trueMain(serverClosed chan struct{}) int {
 func main() {
 	serverClosed := make(chan struct{})
 
-	if err := copy(sourcePersistenceFile, persistenceFile); err != nil {
+	if err := copyFromFileToFile(sourcePersistenceFile, persistenceFile); err != nil {
 		log.Println("main: persistence file not copied. Error:", err)
 		os.Exit(exitCodeError)
 	}
