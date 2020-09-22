@@ -1,9 +1,59 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+	"os"
+	"sort"
+	"strings"
+)
+
+const (
+	exitCodeOk    = 0
+	exitCodeError = 1
+)
+
+func computeStatuses() (statuses map[int]int, err error) {
+	statuses = make(map[int]int)
+
+	statuses[200] = 198
+	statuses[404] = 2
+
+	return statuses, err
+}
+
+func dumpStatuses(statuses map[int]int) string {
+	dumpBuilder := &strings.Builder{}
+
+	keys := make([]int, 0, len(statuses))
+
+	for key := range statuses {
+		keys = append(keys, key)
+	}
+
+	sort.Ints(keys)
+
+	for _, key := range keys {
+		statusLine := fmt.Sprintf("[%v] %v response(s)", key, statuses[key])
+		fmt.Fprintf(dumpBuilder, "%s\n", statusLine)
+	}
+
+	return dumpBuilder.String()
+}
 
 func main() {
-	fmt.Println("Hello, World!")
+	statuses, err := computeStatuses()
+
+	if err != nil {
+		log.Println("main: error on computing status codes. Error:", err)
+		os.Exit(exitCodeError)
+	}
+
+	statusesDump := dumpStatuses(statuses)
+
+	fmt.Println(statusesDump)
+
+	os.Exit(exitCodeOk)
 }
 
 /*
