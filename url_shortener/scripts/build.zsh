@@ -3,7 +3,7 @@
 SCRIPT_DIR=${0:a:h}
 MODULE_DIR="$SCRIPT_DIR"/../..
 BUILD_DIR="build/url_shortener"
-CMD_DIR="src/url_shortener/cmd"
+CMD_DIR="url_shortener/cmd"
 
 pushd "$MODULE_DIR"
 
