@@ -26,7 +26,7 @@ const (
 
 	oneSecond = 1 * time.Second
 
-	sourcePersistenceFile = "src/url_shortener/cmd/end_to_end_tester/persistence.json"
+	sourcePersistenceFile = "url_shortener/cmd/end_to_end_tester/persistence.json"
 	persistenceFile       = "build/url_shortener/persistence.json"
 
 	serverExecutable = "build/url_shortener/http_server"

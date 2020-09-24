@@ -6,6 +6,6 @@ SCRIPT_DIR=${0:a:h}
 
 pushd "$ROOT_DIR"
 
-rm -rf "$BUILD_DIR"
+go test -v ./...
 
 popd
