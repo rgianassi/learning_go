@@ -1,7 +1,7 @@
 #!/usr/bin/zsh
 
 SCRIPT_DIR=${0:a:h}
-MODULE_DIR="$SCRIPT_DIR"/../../..
+MODULE_DIR="$SCRIPT_DIR"/../..
 BUILD_DIR="build/url_shortener"
 CMD_DIR="src/url_shortener/cmd"
 
