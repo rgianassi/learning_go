@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"sort"
 	"strings"
@@ -14,6 +16,8 @@ const (
 	exitCodeOk    = 0
 	exitCodeError = 1
 
+	nanoSecondRatio = 1.0e-9
+
 	usageMessage = `Usage: httpload [options...] URL
 
 	Options:
@@ -23,23 +27,27 @@ const (
 `
 )
 
+type results []result
+
+type result struct {
+	status int
+	timing int64
+}
+
 var (
 	nWorkers    = flag.Int("w", 50, "number of concurrent workers running (default: 50)")
 	nRequests   = flag.Int("n", 200, "number of requests to run (default: 200)")
 	appDuration = flag.Duration("z", 0, "application duration to send requests (default: unlimited)")
 )
 
-func computeStatuses() (statuses map[int]int, err error) {
-	statuses = make(map[int]int)
-
-	statuses[200] = 198
-	statuses[404] = 2
-
-	return statuses, err
-}
-
-func dumpStatuses(statuses map[int]int) string {
+func dumpStatuses(results results) string {
 	dumpBuilder := &strings.Builder{}
+
+	statuses := make(map[int]int)
+
+	for _, result := range results {
+		statuses[result.status]++
+	}
 
 	keys := make([]int, 0, len(statuses))
 
@@ -58,18 +66,7 @@ func dumpStatuses(statuses map[int]int) string {
 	return dumpBuilder.String()
 }
 
-func computeTimings() (timings []float64, err error) {
-	timings = make([]float64, 0, 512)
-
-	timings = append(timings, 0.0003)
-	timings = append(timings, 0.0054)
-	timings = append(timings, 0.0024)
-	timings = append(timings, 0.0295)
-
-	return timings, err
-}
-
-func dumpTimings(timings []float64) string {
+func dumpTimings(results results) string {
 	dumpBuilder := &strings.Builder{}
 
 	totalTiming := float64(0)
@@ -78,15 +75,16 @@ func dumpTimings(timings []float64) string {
 	averageTiming := float64(0)
 	requestsPerSecond := float64(0)
 
-	n := len(timings)
+	n := len(results)
 
 	if n > 0 {
-		totalTiming = timings[0]
-		slowestTiming = timings[0]
-		fastestTiming = timings[0]
+		timing0 := float64(results[0].timing) * nanoSecondRatio
+		totalTiming = timing0
+		slowestTiming = timing0
+		fastestTiming = timing0
 
 		for i := 1; i < n; i++ {
-			timing := timings[i]
+			timing := float64(results[i].timing) * nanoSecondRatio
 
 			totalTiming += timing
 
@@ -124,6 +122,60 @@ func checkFlags(nWorkers int, nRequests int, appDuration time.Duration) (err err
 	return err
 }
 
+func httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) error {
+	c := make(chan error, 1)
+	req = req.WithContext(ctx)
+	go func() { c <- f(http.DefaultClient.Do(req)) }()
+	select {
+	case <-ctx.Done():
+		<-c // Wait for f to return.
+		return ctx.Err()
+	case err := <-c:
+		return err
+	}
+}
+
+func makeLoadRequest(ctx context.Context, query string, results results) (results, error) {
+	req, err := http.NewRequest("GET", query, nil)
+	if err != nil {
+		return results, err
+	}
+
+	start := time.Now()
+	err = httpDo(ctx, req, func(resp *http.Response, err error) error {
+		if err != nil {
+			return err
+		}
+
+		defer resp.Body.Close()
+
+		elapsed := time.Since(start)
+		code := resp.StatusCode
+
+		results = append(results, result{code, int64(elapsed)})
+
+		return nil
+	})
+
+	return results, err
+}
+
+func loadServer(nWorkers int, nRequests int, appDuration time.Duration, url string, results results) (results, error) {
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+
+	if appDuration > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), appDuration)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
+	}
+	defer cancel()
+
+	return makeLoadRequest(ctx, url, results)
+}
+
 func main() {
 	flag.Parse()
 
@@ -139,28 +191,21 @@ func main() {
 		os.Exit(exitCodeError)
 	}
 
-	timings, err := computeTimings()
-
+	var results results
+	results, err := loadServer(*nWorkers, *nRequests, *appDuration, theURL, results)
 	if err != nil {
-		log.Println("main: error on computing request timings. Error:", err)
-		os.Exit(exitCodeError)
-	}
-
-	statuses, err := computeStatuses()
-
-	if err != nil {
-		log.Println("main: error on computing status codes. Error:", err)
+		log.Println("main: error during load test. Error:", err)
 		os.Exit(exitCodeError)
 	}
 
 	fmt.Println("Summary:")
 	fmt.Println("")
-	timingsDump := dumpTimings(timings)
+	timingsDump := dumpTimings(results)
 	fmt.Println(timingsDump)
 
 	fmt.Println("Status code distribution:")
 	fmt.Println("")
-	statusesDump := dumpStatuses(statuses)
+	statusesDump := dumpStatuses(results)
 	fmt.Println(statusesDump)
 
 	fmt.Println("Arguments:", *nWorkers, *nRequests, *appDuration, theURL)
