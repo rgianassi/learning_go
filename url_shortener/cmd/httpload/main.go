@@ -179,12 +179,11 @@ func loadServer(nWorkers int, nRequests int, appDuration time.Duration, url stri
 func main() {
 	flag.Parse()
 
-	nonFlagArgs := flag.Args()
-	if len(nonFlagArgs) != 1 {
+	if flag.NArg() != 1 {
 		fmt.Println(usageMessage)
 		os.Exit(exitCodeError)
 	}
-	theURL := nonFlagArgs[0]
+	theURL := flag.Arg(0)
 
 	if err := checkFlags(*nWorkers, *nRequests, *appDuration); err != nil {
 		log.Println("main: error checking flags. Error:", err)
