@@ -1,0 +1,9 @@
+#
+# Project build dir
+# -----------------
+build/
+
+#
+# Persistence file
+# -----------------
+persistence.json
