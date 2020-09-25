@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -11,6 +12,20 @@ import (
 const (
 	exitCodeOk    = 0
 	exitCodeError = 1
+
+	usageMessage = `Usage: httpload [options...] URL
+
+	Options:
+		-w int		number of concurrent workers running (default: 50)
+		-n int		number of requests to run (default: 200)
+		-z duration	application duration to send requests (default: unlimited)
+`
+)
+
+var (
+	nWorkers    = flag.Int("w", 50, "number of concurrent workers running (default: 50)")
+	nRequests   = flag.Int("n", 200, "number of requests to run (default: 200)")
+	appDuration = flag.Duration("z", 0, "application duration to send requests (default: unlimited)")
 )
 
 func computeStatuses() (statuses map[int]int, err error) {
@@ -102,6 +117,15 @@ func dumpTimings(timings []float64) string {
 }
 
 func main() {
+	flag.Parse()
+
+	nonFlagArgs := flag.Args()
+	if len(nonFlagArgs) != 1 {
+		fmt.Println(usageMessage)
+		os.Exit(exitCodeError)
+	}
+	theURL := nonFlagArgs[0]
+
 	timings, err := computeTimings()
 
 	if err != nil {
@@ -125,6 +149,8 @@ func main() {
 	fmt.Println("")
 	statusesDump := dumpStatuses(statuses)
 	fmt.Println(statusesDump)
+
+	fmt.Println("Arguments:", *nWorkers, *nRequests, *appDuration, theURL)
 
 	os.Exit(exitCodeOk)
 }
