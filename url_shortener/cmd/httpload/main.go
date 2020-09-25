@@ -7,6 +7,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 const (
@@ -17,7 +18,7 @@ const (
 
 	Options:
 		-w int		number of concurrent workers running (default: 50)
-		-n int		number of requests to run (default: 200)
+		-n int		number of requests to run (default: 200): must be equal or greater than -w
 		-z duration	application duration to send requests (default: unlimited)
 `
 )
@@ -116,6 +117,13 @@ func dumpTimings(timings []float64) string {
 	return dumpBuilder.String()
 }
 
+func checkFlags(nWorkers int, nRequests int, appDuration time.Duration) (err error) {
+	if nRequests < nWorkers {
+		err = fmt.Errorf("the number of requests to run (%v) cannot be less than the number of workers (%v)", nRequests, nWorkers)
+	}
+	return err
+}
+
 func main() {
 	flag.Parse()
 
@@ -125,6 +133,11 @@ func main() {
 		os.Exit(exitCodeError)
 	}
 	theURL := nonFlagArgs[0]
+
+	if err := checkFlags(*nWorkers, *nRequests, *appDuration); err != nil {
+		log.Println("main: error checking flags. Error:", err)
+		os.Exit(exitCodeError)
+	}
 
 	timings, err := computeTimings()
 
