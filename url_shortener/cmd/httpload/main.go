@@ -16,8 +16,6 @@ const (
 	exitCodeOk    = 0
 	exitCodeError = 1
 
-	nanoSecondRatio = 1.0e-9
-
 	usageMessage = `Usage: httpload [options...] URL
 
 	Options:
@@ -31,7 +29,7 @@ type results []result
 
 type result struct {
 	status int
-	timing int64
+	timing time.Duration
 }
 
 var (
@@ -78,13 +76,13 @@ func dumpTimings(results results) string {
 	n := len(results)
 
 	if n > 0 {
-		timing0 := float64(results[0].timing) * nanoSecondRatio
+		timing0 := results[0].timing.Seconds()
 		totalTiming = timing0
 		slowestTiming = timing0
 		fastestTiming = timing0
 
 		for i := 1; i < n; i++ {
-			timing := float64(results[i].timing) * nanoSecondRatio
+			timing := results[i].timing.Seconds()
 
 			totalTiming += timing
 
@@ -152,7 +150,7 @@ func makeLoadRequest(ctx context.Context, query string, results results) (result
 		elapsed := time.Since(start)
 		code := resp.StatusCode
 
-		results = append(results, result{code, int64(elapsed)})
+		results = append(results, result{code, elapsed})
 
 		return nil
 	})
