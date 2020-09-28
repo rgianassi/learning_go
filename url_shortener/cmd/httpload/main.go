@@ -68,8 +68,8 @@ func dumpTimings(results results) string {
 	dumpBuilder := &strings.Builder{}
 
 	totalTiming := float64(0)
-	slowestTiming := float64(0)
-	fastestTiming := float64(0)
+	maxTiming := float64(0)
+	minTiming := float64(0)
 	averageTiming := float64(0)
 	requestsPerSecond := float64(0)
 
@@ -78,25 +78,20 @@ func dumpTimings(results results) string {
 	if n > 0 {
 		timing0 := results[0].timing.Seconds()
 		totalTiming = timing0
-		slowestTiming = timing0
-		fastestTiming = timing0
+		maxTiming = timing0
+		minTiming = timing0
 
 		for i := 1; i < n; i++ {
 			timing := results[i].timing.Seconds()
 
 			totalTiming += timing
 
-			// the following conditions are counter-intuitive,
-			// but a bigger timing means a slower execution and
-			// a tinier timing means a faster execution
-			// this is the reason I prefer to measure speed
-			// instead of time :)
-			if timing > slowestTiming {
-				slowestTiming = timing
+			if timing > maxTiming {
+				maxTiming = timing
 			}
 
-			if timing < fastestTiming {
-				fastestTiming = timing
+			if timing < minTiming {
+				minTiming = timing
 			}
 		}
 
@@ -105,8 +100,8 @@ func dumpTimings(results results) string {
 	}
 
 	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Total:        %12.4f secs", totalTiming))
-	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Slowest:      %12.4f secs", slowestTiming))
-	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Fastest:      %12.4f secs", fastestTiming))
+	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Slowest:      %12.4f secs", maxTiming))
+	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Fastest:      %12.4f secs", minTiming))
 	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Average:      %12.4f secs", averageTiming))
 	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Requests/sec: %12.4f", requestsPerSecond))
 
