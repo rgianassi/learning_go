@@ -33,11 +33,27 @@ type result struct {
 	timing time.Duration
 }
 
-var (
-	nWorkers    = flag.Int("w", 50, "number of concurrent workers running (default: 50)")
-	nRequests   = flag.Int("n", 200, "number of requests to run (default: 200)")
-	appDuration = flag.Duration("z", 0, "application duration to send requests (default: unlimited)")
-)
+// Config manages the configuration parameters passed on the command line
+type Config struct {
+	nWorkers    int
+	nRequests   int
+	appDuration time.Duration
+}
+
+func newConfigFromFlags(flags *flag.FlagSet) Config {
+	config := Config{}
+	flag.IntVar(&config.nWorkers, "w", 50, "number of concurrent workers running (default: 50)")
+	flag.IntVar(&config.nRequests, "n", 200, "number of requests to run (default: 200)")
+	flag.DurationVar(&config.appDuration, "z", 0, "application duration to send requests (default: unlimited)")
+	return config
+}
+
+func (c *Config) checkFlags() (err error) {
+	if c.nRequests < c.nWorkers {
+		err = fmt.Errorf("the number of requests to run (%v) cannot be less than the number of workers (%v)", c.nRequests, c.nWorkers)
+	}
+	return err
+}
 
 func dumpStatuses(w io.Writer, results results) {
 	statuses := make(map[int]int)
@@ -104,13 +120,6 @@ func dumpTimings(w io.Writer, results results) {
 	fmt.Fprintf(w, "%s\n", fmt.Sprintf("Requests/sec: %12.4f", requestsPerSecond))
 }
 
-func checkFlags(nWorkers int, nRequests int, appDuration time.Duration) (err error) {
-	if nRequests < nWorkers {
-		err = fmt.Errorf("the number of requests to run (%v) cannot be less than the number of workers (%v)", nRequests, nWorkers)
-	}
-	return err
-}
-
 func httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) error {
 	c := make(chan error, 1)
 	req = req.WithContext(ctx)
@@ -149,14 +158,14 @@ func makeLoadRequest(ctx context.Context, query string, results results) (result
 	return results, err
 }
 
-func loadServer(nWorkers int, nRequests int, appDuration time.Duration, url string, results results) (results, error) {
+func loadServer(config Config, url string, results results) (results, error) {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
 
-	if appDuration > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), appDuration)
+	if config.appDuration > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), config.appDuration)
 	} else {
 		ctx, cancel = context.WithCancel(context.Background())
 	}
@@ -166,21 +175,25 @@ func loadServer(nWorkers int, nRequests int, appDuration time.Duration, url stri
 }
 
 func main() {
-	flag.Parse()
+	var flags = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
-	if flag.NArg() != 1 {
+	config := newConfigFromFlags(flags)
+
+	flags.Parse(os.Args[1:])
+
+	if flags.NArg() != 1 {
 		fmt.Println(usageMessage)
 		os.Exit(exitCodeError)
 	}
-	theURL := flag.Arg(0)
+	theURL := flags.Arg(0)
 
-	if err := checkFlags(*nWorkers, *nRequests, *appDuration); err != nil {
+	if err := config.checkFlags(); err != nil {
 		log.Println("main: error checking flags. Error:", err)
 		os.Exit(exitCodeError)
 	}
 
 	var results results
-	results, err := loadServer(*nWorkers, *nRequests, *appDuration, theURL, results)
+	results, err := loadServer(config, theURL, results)
 	if err != nil {
 		log.Println("main: error during load test. Error:", err)
 		os.Exit(exitCodeError)
@@ -195,7 +208,7 @@ func main() {
 
 	fmt.Println(outBuilder.String())
 
-	fmt.Println("Arguments:", *nWorkers, *nRequests, *appDuration, theURL)
+	fmt.Println("Arguments:", config.nWorkers, config.nRequests, config.appDuration, theURL)
 
 	os.Exit(exitCodeOk)
 }
