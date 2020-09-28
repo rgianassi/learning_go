@@ -207,7 +207,7 @@ func (lt *LoadTester) dumpTimings(w io.Writer) {
 }
 
 func main() {
-	flags := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
+	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	flags.Usage = func() {
 		progName := os.Args[0]
 		fmt.Fprintf(flags.Output(), "Usage: %s [options...] URL\n", progName)
