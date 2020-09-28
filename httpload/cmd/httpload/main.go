@@ -45,9 +45,9 @@ type Config struct {
 
 func newConfigFromFlags(flags *flag.FlagSet) Config {
 	config := Config{}
-	flag.IntVar(&config.nWorkers, "w", 50, "number of concurrent workers running")
-	flag.IntVar(&config.nRequests, "n", 200, "number of requests to run")
-	flag.DurationVar(&config.appDuration, "z", 0, "application duration to send requests")
+	flags.IntVar(&config.nWorkers, "w", 50, "number of concurrent workers running")
+	flags.IntVar(&config.nRequests, "n", 200, "number of requests to run")
+	flags.DurationVar(&config.appDuration, "z", 0, "application duration to send requests")
 	return config
 }
 
@@ -58,8 +58,8 @@ func (c *Config) checkFlags() (err error) {
 	return err
 }
 
-func (c *Config) parse(flags *flag.FlagSet) (err error) {
-	flags.Parse(os.Args[1:])
+func (c *Config) parse(flags *flag.FlagSet, args []string) (err error) {
+	flags.Parse(args)
 
 	if flags.NArg() != 1 {
 		return fmt.Errorf("Wrong number of arguments")
@@ -128,6 +128,19 @@ func (lt *LoadTester) makeLoadRequest(ctx context.Context, query string) error {
 	return err
 }
 
+func (lt *LoadTester) httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) error {
+	c := make(chan error, 1)
+	req = req.WithContext(ctx)
+	go func() { c <- f(http.DefaultClient.Do(req)) }()
+	select {
+	case <-ctx.Done():
+		<-c // Wait for f to return.
+		return ctx.Err()
+	case err := <-c:
+		return err
+	}
+}
+
 func (lt *LoadTester) dumpStatuses(w io.Writer) {
 	statuses := make(map[int]int)
 
@@ -193,32 +206,19 @@ func (lt *LoadTester) dumpTimings(w io.Writer) {
 	fmt.Fprintf(w, "%s\n", fmt.Sprintf("Requests/sec: %12.4f", requestsPerSecond))
 }
 
-func (lt *LoadTester) httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) error {
-	c := make(chan error, 1)
-	req = req.WithContext(ctx)
-	go func() { c <- f(http.DefaultClient.Do(req)) }()
-	select {
-	case <-ctx.Done():
-		<-c // Wait for f to return.
-		return ctx.Err()
-	case err := <-c:
-		return err
-	}
-}
-
 func main() {
-	var flags = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	flags.SetOutput(nil)
+	flags := flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	flags.Usage = func() {
-		fmt.Fprintf(flags.Output(), "Usage of %s:\n", os.Args[0])
+		progName := os.Args[0]
+		fmt.Fprintf(flags.Output(), "Usage: %s [options...] URL\n", progName)
 		flags.PrintDefaults()
 	}
 
 	config := newConfigFromFlags(flags)
 
-	if err := config.parse(flags); err != nil {
+	if err := config.parse(flags, os.Args[1:]); err != nil {
 		fmt.Println("main: error during arguments parsing. Error:", err)
-		flags.PrintDefaults()
+		flags.Usage()
 		os.Exit(exitCodeError)
 	}
 
