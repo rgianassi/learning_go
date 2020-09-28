@@ -208,7 +208,11 @@ func (lt *LoadTester) httpDo(ctx context.Context, req *http.Request, f func(*htt
 
 func main() {
 	var flags = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	flags.Usage = flag.Usage
+	flags.SetOutput(nil)
+	flags.Usage = func() {
+		fmt.Fprintf(flags.Output(), "Usage of %s:\n", os.Args[0])
+		flags.PrintDefaults()
+	}
 
 	config := newConfigFromFlags(flags)
 
