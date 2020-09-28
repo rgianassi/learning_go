@@ -26,9 +26,11 @@ const (
 `
 )
 
-type results []result
+// Results is a list of Result
+type Results []Result
 
-type result struct {
+// Result represents a result from a request made by the load tester
+type Result struct {
 	status int
 	timing time.Duration
 }
@@ -38,6 +40,7 @@ type Config struct {
 	nWorkers    int
 	nRequests   int
 	appDuration time.Duration
+	url         string
 }
 
 func newConfigFromFlags(flags *flag.FlagSet) Config {
@@ -55,10 +58,80 @@ func (c *Config) checkFlags() (err error) {
 	return err
 }
 
-func dumpStatuses(w io.Writer, results results) {
+func (c *Config) parse(flags *flag.FlagSet) (err error) {
+	flags.Parse(os.Args[1:])
+
+	if flags.NArg() != 1 {
+		return fmt.Errorf("Wrong number of arguments")
+	}
+
+	c.url = flags.Arg(0)
+	return err
+}
+
+// LoadTester represents an instance of the load testing logic
+type LoadTester struct {
+	results Results
+}
+
+func newLoadTesterFromConfig(config Config) LoadTester {
+	loadTester := LoadTester{}
+	return loadTester
+}
+
+func (lt *LoadTester) writeResults(w io.Writer) {
+	fmt.Fprintf(w, "\n%s\n\n", "Summary:")
+	lt.dumpTimings(w)
+
+	fmt.Fprintf(w, "\n%s\n\n", "Status code distribution:")
+	lt.dumpStatuses(w)
+}
+
+func (lt *LoadTester) run(config Config) error {
+	var (
+		ctx    context.Context
+		cancel context.CancelFunc
+	)
+
+	if config.appDuration > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), config.appDuration)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
+	}
+	defer cancel()
+
+	return lt.makeLoadRequest(ctx, config.url)
+}
+
+func (lt *LoadTester) makeLoadRequest(ctx context.Context, query string) error {
+	req, err := http.NewRequest("GET", query, nil)
+	if err != nil {
+		return err
+	}
+
+	start := time.Now()
+	err = lt.httpDo(ctx, req, func(resp *http.Response, err error) error {
+		if err != nil {
+			return err
+		}
+
+		defer resp.Body.Close()
+
+		elapsed := time.Since(start)
+		code := resp.StatusCode
+
+		lt.results = append(lt.results, Result{code, elapsed})
+
+		return nil
+	})
+
+	return err
+}
+
+func (lt *LoadTester) dumpStatuses(w io.Writer) {
 	statuses := make(map[int]int)
 
-	for _, result := range results {
+	for _, result := range lt.results {
 		statuses[result.status]++
 	}
 
@@ -77,27 +150,27 @@ func dumpStatuses(w io.Writer, results results) {
 	}
 }
 
-func dumpTimings(w io.Writer, results results) {
+func (lt *LoadTester) dumpTimings(w io.Writer) {
 	totalTiming := float64(0)
 	maxTiming := float64(0)
 	minTiming := float64(0)
 	averageTiming := float64(0)
 	requestsPerSecond := float64(0)
 
-	n := len(results)
+	n := len(lt.results)
 	noResults := (n == 0)
 
 	if noResults {
 		return
 	}
 
-	timing0 := results[0].timing.Seconds()
+	timing0 := lt.results[0].timing.Seconds()
 	totalTiming = timing0
 	maxTiming = timing0
 	minTiming = timing0
 
 	for i := 1; i < n; i++ {
-		timing := results[i].timing.Seconds()
+		timing := lt.results[i].timing.Seconds()
 
 		totalTiming += timing
 
@@ -120,7 +193,7 @@ func dumpTimings(w io.Writer, results results) {
 	fmt.Fprintf(w, "%s\n", fmt.Sprintf("Requests/sec: %12.4f", requestsPerSecond))
 }
 
-func httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) error {
+func (lt *LoadTester) httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) error {
 	c := make(chan error, 1)
 	req = req.WithContext(ctx)
 	go func() { c <- f(http.DefaultClient.Do(req)) }()
@@ -133,82 +206,31 @@ func httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error
 	}
 }
 
-func makeLoadRequest(ctx context.Context, query string, results results) (results, error) {
-	req, err := http.NewRequest("GET", query, nil)
-	if err != nil {
-		return results, err
-	}
-
-	start := time.Now()
-	err = httpDo(ctx, req, func(resp *http.Response, err error) error {
-		if err != nil {
-			return err
-		}
-
-		defer resp.Body.Close()
-
-		elapsed := time.Since(start)
-		code := resp.StatusCode
-
-		results = append(results, result{code, elapsed})
-
-		return nil
-	})
-
-	return results, err
-}
-
-func loadServer(config Config, url string, results results) (results, error) {
-	var (
-		ctx    context.Context
-		cancel context.CancelFunc
-	)
-
-	if config.appDuration > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), config.appDuration)
-	} else {
-		ctx, cancel = context.WithCancel(context.Background())
-	}
-	defer cancel()
-
-	return makeLoadRequest(ctx, url, results)
-}
-
 func main() {
 	var flags = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	config := newConfigFromFlags(flags)
 
-	flags.Parse(os.Args[1:])
-
-	if flags.NArg() != 1 {
-		fmt.Println(usageMessage)
+	if err := config.parse(flags); err != nil {
+		fmt.Println("main: error during arguments parsing. Error:", err)
 		os.Exit(exitCodeError)
 	}
-	theURL := flags.Arg(0)
 
 	if err := config.checkFlags(); err != nil {
 		log.Println("main: error checking flags. Error:", err)
 		os.Exit(exitCodeError)
 	}
 
-	var results results
-	results, err := loadServer(config, theURL, results)
-	if err != nil {
+	loadTester := newLoadTesterFromConfig(config)
+
+	if err := loadTester.run(config); err != nil {
 		log.Println("main: error during load test. Error:", err)
 		os.Exit(exitCodeError)
 	}
 
 	outBuilder := &strings.Builder{}
-	fmt.Fprintf(outBuilder, "\n%s\n\n", "Summary:")
-	dumpTimings(outBuilder, results)
-
-	fmt.Fprintf(outBuilder, "\n%s\n\n", "Status code distribution:")
-	dumpStatuses(outBuilder, results)
-
+	loadTester.writeResults(outBuilder)
 	fmt.Println(outBuilder.String())
-
-	fmt.Println("Arguments:", config.nWorkers, config.nRequests, config.appDuration, theURL)
 
 	os.Exit(exitCodeOk)
 }
