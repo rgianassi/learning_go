@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -38,9 +39,7 @@ var (
 	appDuration = flag.Duration("z", 0, "application duration to send requests (default: unlimited)")
 )
 
-func dumpStatuses(results results) string {
-	dumpBuilder := &strings.Builder{}
-
+func dumpStatuses(w io.Writer, results results) {
 	statuses := make(map[int]int)
 
 	for _, result := range results {
@@ -58,15 +57,11 @@ func dumpStatuses(results results) string {
 	for _, key := range keys {
 		code := float64(key)
 		count := float64(statuses[key])
-		fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("[%3.f] %12.f response(s)", code, count))
+		fmt.Fprintf(w, "%s\n", fmt.Sprintf("[%3.f] %12.f response(s)", code, count))
 	}
-
-	return dumpBuilder.String()
 }
 
-func dumpTimings(results results) string {
-	dumpBuilder := &strings.Builder{}
-
+func dumpTimings(w io.Writer, results results) {
 	totalTiming := float64(0)
 	maxTiming := float64(0)
 	minTiming := float64(0)
@@ -74,38 +69,39 @@ func dumpTimings(results results) string {
 	requestsPerSecond := float64(0)
 
 	n := len(results)
+	noResults := (n == 0)
 
-	if n > 0 {
-		timing0 := results[0].timing.Seconds()
-		totalTiming = timing0
-		maxTiming = timing0
-		minTiming = timing0
-
-		for i := 1; i < n; i++ {
-			timing := results[i].timing.Seconds()
-
-			totalTiming += timing
-
-			if timing > maxTiming {
-				maxTiming = timing
-			}
-
-			if timing < minTiming {
-				minTiming = timing
-			}
-		}
-
-		averageTiming = totalTiming / float64(n)
-		requestsPerSecond = float64(1) / averageTiming
+	if noResults {
+		return
 	}
 
-	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Total:        %12.4f secs", totalTiming))
-	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Slowest:      %12.4f secs", maxTiming))
-	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Fastest:      %12.4f secs", minTiming))
-	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Average:      %12.4f secs", averageTiming))
-	fmt.Fprintf(dumpBuilder, "%s\n", fmt.Sprintf("Requests/sec: %12.4f", requestsPerSecond))
+	timing0 := results[0].timing.Seconds()
+	totalTiming = timing0
+	maxTiming = timing0
+	minTiming = timing0
 
-	return dumpBuilder.String()
+	for i := 1; i < n; i++ {
+		timing := results[i].timing.Seconds()
+
+		totalTiming += timing
+
+		if timing > maxTiming {
+			maxTiming = timing
+		}
+
+		if timing < minTiming {
+			minTiming = timing
+		}
+	}
+
+	averageTiming = totalTiming / float64(n)
+	requestsPerSecond = float64(1) / averageTiming
+
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("Total:        %12.4f secs", totalTiming))
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("Slowest:      %12.4f secs", maxTiming))
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("Fastest:      %12.4f secs", minTiming))
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("Average:      %12.4f secs", averageTiming))
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("Requests/sec: %12.4f", requestsPerSecond))
 }
 
 func checkFlags(nWorkers int, nRequests int, appDuration time.Duration) (err error) {
@@ -190,15 +186,14 @@ func main() {
 		os.Exit(exitCodeError)
 	}
 
-	fmt.Println("Summary:")
-	fmt.Println("")
-	timingsDump := dumpTimings(results)
-	fmt.Println(timingsDump)
+	outBuilder := &strings.Builder{}
+	fmt.Fprintf(outBuilder, "\n%s\n\n", "Summary:")
+	dumpTimings(outBuilder, results)
 
-	fmt.Println("Status code distribution:")
-	fmt.Println("")
-	statusesDump := dumpStatuses(results)
-	fmt.Println(statusesDump)
+	fmt.Fprintf(outBuilder, "\n%s\n\n", "Status code distribution:")
+	dumpStatuses(outBuilder, results)
+
+	fmt.Println(outBuilder.String())
 
 	fmt.Println("Arguments:", *nWorkers, *nRequests, *appDuration, theURL)
 
