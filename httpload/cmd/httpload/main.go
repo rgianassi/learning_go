@@ -45,9 +45,9 @@ type Config struct {
 
 func newConfigFromFlags(flags *flag.FlagSet) Config {
 	config := Config{}
-	flag.IntVar(&config.nWorkers, "w", 50, "number of concurrent workers running (default: 50)")
-	flag.IntVar(&config.nRequests, "n", 200, "number of requests to run (default: 200)")
-	flag.DurationVar(&config.appDuration, "z", 0, "application duration to send requests (default: unlimited)")
+	flag.IntVar(&config.nWorkers, "w", 50, "number of concurrent workers running")
+	flag.IntVar(&config.nRequests, "n", 200, "number of requests to run")
+	flag.DurationVar(&config.appDuration, "z", 0, "application duration to send requests")
 	return config
 }
 
@@ -208,11 +208,13 @@ func (lt *LoadTester) httpDo(ctx context.Context, req *http.Request, f func(*htt
 
 func main() {
 	var flags = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	flags.Usage = flag.Usage
 
 	config := newConfigFromFlags(flags)
 
 	if err := config.parse(flags); err != nil {
 		fmt.Println("main: error during arguments parsing. Error:", err)
+		flags.PrintDefaults()
 		os.Exit(exitCodeError)
 	}
 
