@@ -10,7 +10,10 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -69,6 +72,42 @@ func (c *Config) parse(flags *flag.FlagSet, args []string) (err error) {
 	return err
 }
 
+func (c *Config) genRequests(ctx context.Context) (<-chan string, <-chan error, error) {
+	theRequest := c.url
+
+	if theRequest == "" {
+		return nil, nil, errors.Errorf("no URL provided")
+	}
+
+	out := make(chan string)
+	errc := make(chan error, 1) // unused
+
+	go func() {
+		defer close(out)
+		defer close(errc)
+
+		proceed := func(i int) bool {
+			// if the duration is defined we emit requests indefinitely
+			isDurationDefined := (c.appDuration > 0)
+			// if no duration is defined, emit -n requests
+			isLoopUnfinished := (i < c.nRequests)
+
+			isUnfinished := isDurationDefined || isLoopUnfinished
+			return isUnfinished
+		}
+
+		for i := 0; proceed(i); i++ {
+			select {
+			case out <- theRequest:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return out, errc, nil
+}
+
 // LoadTester represents an instance of the load testing logic
 type LoadTester struct {
 	results Results
@@ -87,6 +126,100 @@ func (lt *LoadTester) writeResults(w io.Writer) {
 	lt.dumpStatuses(w)
 }
 
+func (lt *LoadTester) genLoadRequest(ctx context.Context, in <-chan string) (<-chan Result, <-chan error, error) {
+	out := make(chan Result)
+	errc := make(chan error, 1)
+
+	go func() {
+		defer close(out)
+		defer close(errc)
+
+		for url := range in {
+			req, err := http.NewRequest("GET", url, nil)
+			if err != nil {
+				errc <- err
+				return
+			}
+
+			req = req.WithContext(ctx)
+
+			start := time.Now()
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				errc <- err
+				return
+			}
+			defer resp.Body.Close()
+
+			elapsed := time.Since(start)
+			code := resp.StatusCode
+
+			select {
+			case out <- Result{code, elapsed}:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	return out, errc, nil
+}
+
+func (lt *LoadTester) genResults(ctx context.Context, in <-chan Result) (<-chan error, error) {
+	errc := make(chan error, 1) // signals goroutine completion
+
+	go func() {
+		defer close(errc)
+
+		for result := range in {
+			lt.results = append(lt.results, result)
+		}
+	}()
+
+	return errc, nil
+}
+
+func (lt *LoadTester) waitForPipeline(errs ...<-chan error) error {
+	errc := lt.mergeErrors(errs...)
+	for err := range errc {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (lt *LoadTester) mergeErrors(cs ...<-chan error) <-chan error {
+	var wg sync.WaitGroup
+
+	// We must ensure that the output channel has the capacity to
+	// hold as many errors as there are error channels.
+	// This will ensure that it never blocks, even if WaitForPipeline returns early.
+	out := make(chan error, len(cs))
+
+	// Start an output goroutine for each input channel in cs. output
+	// copies values from c to out until c is closed, then calls wg.Done.
+	output := func(c <-chan error) {
+		for n := range c {
+			out <- n
+		}
+		wg.Done()
+	}
+	wg.Add(len(cs))
+	for _, c := range cs {
+		go output(c)
+	}
+
+	// Start a goroutine to close out once all the output goroutines are done.
+	// This must start after the wg.Add call.
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+
+	return out
+}
+
 func (lt *LoadTester) run(config Config) error {
 	var (
 		ctx    context.Context
@@ -100,45 +233,26 @@ func (lt *LoadTester) run(config Config) error {
 	}
 	defer cancel()
 
-	return lt.makeLoadRequest(ctx, config.url)
-}
-
-func (lt *LoadTester) makeLoadRequest(ctx context.Context, query string) error {
-	req, err := http.NewRequest("GET", query, nil)
+	var errcList []<-chan error
+	urlc, errc, err := config.genRequests(ctx)
 	if err != nil {
 		return err
 	}
+	errcList = append(errcList, errc)
 
-	start := time.Now()
-	err = lt.httpDo(ctx, req, func(resp *http.Response, err error) error {
-		if err != nil {
-			return err
-		}
-
-		defer resp.Body.Close()
-
-		elapsed := time.Since(start)
-		code := resp.StatusCode
-
-		lt.results = append(lt.results, Result{code, elapsed})
-
-		return nil
-	})
-
-	return err
-}
-
-func (lt *LoadTester) httpDo(ctx context.Context, req *http.Request, f func(*http.Response, error) error) error {
-	c := make(chan error, 1)
-	req = req.WithContext(ctx)
-	go func() { c <- f(http.DefaultClient.Do(req)) }()
-	select {
-	case <-ctx.Done():
-		<-c // Wait for f to return.
-		return ctx.Err()
-	case err := <-c:
+	resultc, errc, err := lt.genLoadRequest(ctx, urlc)
+	if err != nil {
 		return err
 	}
+	errcList = append(errcList, errc)
+
+	errc, err = lt.genResults(ctx, resultc)
+	if err != nil {
+		return err
+	}
+	errcList = append(errcList, errc)
+
+	return lt.waitForPipeline(errcList...)
 }
 
 func (lt *LoadTester) dumpStatuses(w io.Writer) {
