@@ -8,9 +8,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -46,8 +48,8 @@ type Config struct {
 	url         string
 }
 
-func newConfigFromFlags(flags *flag.FlagSet) Config {
-	config := Config{}
+func newConfigFromFlags(flags *flag.FlagSet) *Config {
+	config := &Config{}
 	flags.IntVar(&config.nWorkers, "w", 50, "number of concurrent workers running")
 	flags.IntVar(&config.nRequests, "n", 200, "number of requests to run")
 	flags.DurationVar(&config.appDuration, "z", 0, "application duration to send requests")
@@ -91,7 +93,6 @@ func (c *Config) genRequests(ctx context.Context) (<-chan string, <-chan error, 
 			isDurationDefined := (c.appDuration > 0)
 			// if no duration is defined, emit -n requests
 			isLoopUnfinished := (i < c.nRequests)
-
 			isUnfinished := isDurationDefined || isLoopUnfinished
 			return isUnfinished
 		}
@@ -113,7 +114,7 @@ type LoadTester struct {
 	results Results
 }
 
-func newLoadTesterFromConfig(config Config) LoadTester {
+func newLoadTesterFromConfig(config *Config) LoadTester {
 	loadTester := LoadTester{}
 	return loadTester
 }
@@ -165,7 +166,7 @@ func (lt *LoadTester) genLoadRequest(ctx context.Context, in <-chan string) (<-c
 	return out, errc, nil
 }
 
-func (lt *LoadTester) genLoadRequests(ctx context.Context, config Config, in <-chan string) (<-chan Result, <-chan error, error) {
+func (lt *LoadTester) genLoadRequests(ctx context.Context, config *Config, in <-chan string) (<-chan Result, <-chan error, error) {
 	out := make(chan Result)
 	errc := make(chan error, 1)
 
@@ -264,7 +265,7 @@ func (lt *LoadTester) mergeErrors(cs ...<-chan error) <-chan error {
 	return out
 }
 
-func (lt *LoadTester) run(config Config) error {
+func (lt *LoadTester) run(config *Config, done chan bool) error {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
@@ -276,6 +277,11 @@ func (lt *LoadTester) run(config Config) error {
 		ctx, cancel = context.WithCancel(context.Background())
 	}
 	defer cancel()
+
+	go func() {
+		<-done
+		cancel()
+	}()
 
 	var errcList []<-chan error
 	urlc, errc, err := config.genRequests(ctx)
@@ -296,7 +302,11 @@ func (lt *LoadTester) run(config Config) error {
 	}
 	errcList = append(errcList, errc)
 
-	return lt.waitForPipeline(errcList...)
+	err = lt.waitForPipeline(errcList...)
+
+	done <- true
+
+	return err
 }
 
 func (lt *LoadTester) dumpStatuses(w io.Writer) {
@@ -364,7 +374,21 @@ func (lt *LoadTester) dumpTimings(w io.Writer) {
 	fmt.Fprintf(w, "%s\n", fmt.Sprintf("Requests/sec: %12.4f", requestsPerSecond))
 }
 
+func setupGracefulShutdown(done chan bool) {
+	signalChannel := make(chan os.Signal, 1)
+
+	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGKILL)
+
+	<-signalChannel
+
+	done <- true
+}
+
 func main() {
+	done := make(chan bool)
+	defer close(done)
+	go setupGracefulShutdown(done)
+
 	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	flags.Usage = func() {
 		progName := os.Args[0]
@@ -387,10 +411,14 @@ func main() {
 
 	loadTester := newLoadTesterFromConfig(config)
 
-	if err := loadTester.run(config); err != nil {
-		log.Println("main: error during load test. Error:", err)
-		os.Exit(exitCodeError)
-	}
+	go func() {
+		if err := loadTester.run(config, done); err != nil {
+			log.Println("main: error during load test. Error:", err)
+			os.Exit(exitCodeError)
+		}
+	}()
+
+	<-done
 
 	outBuilder := &strings.Builder{}
 	loadTester.writeResults(outBuilder)
