@@ -405,7 +405,13 @@ func trueMain(flags *flag.FlagSet, args []string) int {
 	loadTester := newLoadTesterFromConfig(config)
 
 	go func() {
-		if err := loadTester.run(config, done); err != nil {
+		err := loadTester.run(config, done)
+
+		if errors.Is(err, context.DeadlineExceeded) {
+			return
+		}
+
+		if err != nil {
 			log.Println("main: error during load test. Error:", err)
 			os.Exit(exitCodeError)
 		}
