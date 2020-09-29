@@ -384,29 +384,22 @@ func setupGracefulShutdown(done chan bool) {
 	done <- true
 }
 
-func main() {
+func trueMain(flags *flag.FlagSet, args []string) int {
 	done := make(chan bool)
 	defer close(done)
 	go setupGracefulShutdown(done)
 
-	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	flags.Usage = func() {
-		progName := os.Args[0]
-		fmt.Fprintf(flags.Output(), "Usage: %s [options...] URL\n", progName)
-		flags.PrintDefaults()
-	}
-
 	config := newConfigFromFlags(flags)
 
-	if err := config.parse(flags, os.Args[1:]); err != nil {
+	if err := config.parse(flags, args); err != nil {
 		fmt.Println("main: error during arguments parsing. Error:", err)
 		flags.Usage()
-		os.Exit(exitCodeError)
+		return exitCodeError
 	}
 
 	if err := config.checkFlags(); err != nil {
 		log.Println("main: error checking flags. Error:", err)
-		os.Exit(exitCodeError)
+		return exitCodeError
 	}
 
 	loadTester := newLoadTesterFromConfig(config)
@@ -424,5 +417,18 @@ func main() {
 	loadTester.writeResults(outBuilder)
 	fmt.Println(outBuilder.String())
 
-	os.Exit(exitCodeOk)
+	return exitCodeOk
+}
+
+func main() {
+	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	flags.Usage = func() {
+		progName := os.Args[0]
+		fmt.Fprintf(flags.Output(), "Usage: %s [options...] URL\n", progName)
+		flags.PrintDefaults()
+	}
+
+	exitCode := trueMain(flags, os.Args[1:])
+
+	os.Exit(exitCode)
 }
