@@ -15,19 +15,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/rgianassi/learning/go/httpload/pkg/loader"
 )
 
 const (
 	exitCodeOk    = 0
 	exitCodeError = 1
-
-	usageMessage = `Usage: httpload [options...] URL
-
-	Options:
-		-w int		number of concurrent workers running (default: 50)
-		-n int		number of requests to run (default: 200): must be equal or greater than -w
-		-z duration	application duration to send requests (default: unlimited)
-`
 )
 
 // Results is a list of Result
@@ -39,82 +32,13 @@ type Result struct {
 	timing time.Duration
 }
 
-// Config manages the configuration parameters passed on the command line
-type Config struct {
-	nWorkers    int
-	nRequests   int
-	appDuration time.Duration
-	url         string
-}
-
-func newConfigFromFlags(flags *flag.FlagSet) *Config {
-	config := &Config{}
-	flags.IntVar(&config.nWorkers, "w", 50, "number of concurrent workers running")
-	flags.IntVar(&config.nRequests, "n", 200, "number of requests to run")
-	flags.DurationVar(&config.appDuration, "z", 0, "application duration to send requests")
-	return config
-}
-
-func (c *Config) checkFlags() (err error) {
-	if c.nRequests < c.nWorkers {
-		err = fmt.Errorf("the number of requests to run (%v) cannot be less than the number of workers (%v)", c.nRequests, c.nWorkers)
-	}
-	return err
-}
-
-func (c *Config) parse(flags *flag.FlagSet, args []string) (err error) {
-	flags.Parse(args)
-
-	if flags.NArg() != 1 {
-		return fmt.Errorf("Wrong number of arguments")
-	}
-
-	c.url = flags.Arg(0)
-	return err
-}
-
-func (c *Config) genRequests(ctx context.Context) (<-chan string, <-chan error, error) {
-	theRequest := c.url
-
-	if theRequest == "" {
-		return nil, nil, errors.Errorf("no URL provided")
-	}
-
-	out := make(chan string)
-	errc := make(chan error, 1) // unused
-
-	go func() {
-		defer close(out)
-		defer close(errc)
-
-		proceed := func(i int) bool {
-			// if the duration is defined we emit requests indefinitely
-			isDurationDefined := (c.appDuration > 0)
-			// if no duration is defined, emit -n requests
-			isLoopUnfinished := (i < c.nRequests)
-			isUnfinished := isDurationDefined || isLoopUnfinished
-			return isUnfinished
-		}
-
-		for i := 0; proceed(i); i++ {
-			select {
-			case out <- theRequest:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	return out, errc, nil
-}
-
 // LoadTester represents an instance of the load testing logic
 type LoadTester struct {
 	results Results
-	config  *Config
+	config  *loader.Config
 }
 
-func newLoadTesterFromConfig(config *Config) LoadTester {
+func newLoadTesterFromConfig(config *loader.Config) LoadTester {
 	loadTester := LoadTester{}
 	loadTester.config = config
 	return loadTester
@@ -172,7 +96,7 @@ func (lt *LoadTester) genLoadRequests(ctx context.Context, in <-chan string) (<-
 	errc := make(chan error, 1)
 
 	var wg sync.WaitGroup
-	numWorkers := lt.config.nWorkers
+	numWorkers := lt.config.NWorkers()
 	wg.Add(numWorkers)
 
 	for i := 0; i < numWorkers; i++ {
@@ -272,8 +196,8 @@ func (lt *LoadTester) run(done chan bool) error {
 		cancel context.CancelFunc
 	)
 
-	if lt.config.appDuration > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), lt.config.appDuration)
+	if lt.config.AppDuration() > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), lt.config.AppDuration())
 	} else {
 		ctx, cancel = context.WithCancel(context.Background())
 	}
@@ -285,7 +209,7 @@ func (lt *LoadTester) run(done chan bool) error {
 	}()
 
 	var errcList []<-chan error
-	urlc, errc, err := lt.config.genRequests(ctx)
+	urlc, errc, err := lt.config.RequestsSource(ctx)
 	if err != nil {
 		return err
 	}
@@ -390,15 +314,15 @@ func trueMain(flags *flag.FlagSet, args []string) int {
 	defer close(done)
 	go setupGracefulShutdown(done)
 
-	config := newConfigFromFlags(flags)
+	config := loader.NewConfigFromFlags(flags)
 
-	if err := config.parse(flags, args); err != nil {
+	if err := config.Parse(flags, args); err != nil {
 		fmt.Println("main: error during arguments parsing. Error:", err)
 		flags.Usage()
 		return exitCodeError
 	}
 
-	if err := config.checkFlags(); err != nil {
+	if err := config.CheckFlags(); err != nil {
 		log.Println("main: error checking flags. Error:", err)
 		return exitCodeError
 	}
