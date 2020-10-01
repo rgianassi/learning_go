@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -16,20 +17,22 @@ const (
 	exitCodeError = 1
 )
 
-func setupGracefulShutdown(done chan bool) {
-	signalChannel := make(chan os.Signal, 1)
+func setupGracefulShutdown() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
 
-	signal.Notify(signalChannel, os.Interrupt, os.Kill)
+	go func() {
+		signalChannel := make(chan os.Signal, 1)
+		signal.Notify(signalChannel, os.Interrupt, os.Kill)
+		<-signalChannel
 
-	<-signalChannel
+		cancel()
+	}()
 
-	done <- true
+	return ctx
 }
 
 func trueMain(flags *flag.FlagSet, args []string) int {
-	done := make(chan bool)
-	defer close(done)
-	go setupGracefulShutdown(done)
+	ctx := setupGracefulShutdown()
 
 	config := loader.NewConfigFromFlags(flags)
 
@@ -45,17 +48,11 @@ func trueMain(flags *flag.FlagSet, args []string) int {
 	}
 
 	loadTester := loader.NewLoadTesterFromConfig(config)
-
-	go func() {
-		err := loadTester.RunLoaderPipeline(done)
-
-		if err != nil {
-			log.Println("main: error during load test. Error:", err)
-			os.Exit(exitCodeError)
-		}
-	}()
-
-	<-done
+	err := loadTester.RunLoaderPipeline(ctx)
+	if err != nil {
+		log.Println("main: error during load test. Error:", err)
+		os.Exit(exitCodeError)
+	}
 
 	outBuilder := &strings.Builder{}
 	loadTester.WriteResults(outBuilder)

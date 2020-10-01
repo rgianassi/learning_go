@@ -198,18 +198,18 @@ func (lt *LoadTester) RunRequestWorkers(ctx context.Context, in <-chan string) (
 
 // AppendResults is a sink to save collected results in the in channel to the Results array
 // see: https://medium.com/statuscode/pipeline-patterns-in-go-a37bb3a7e61d
-func (lt *LoadTester) AppendResults(ctx context.Context, in <-chan Result) (<-chan error, error) {
-	errc := make(chan error, 1) // signals goroutine completion
-
-	go func() {
-		defer close(errc)
-
-		for result := range in {
+func (lt *LoadTester) AppendResults(ctx context.Context, in <-chan Result) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case result, ok := <-in:
+			if !ok {
+				return
+			}
 			lt.results = append(lt.results, result)
 		}
-	}()
-
-	return errc, nil
+	}
 }
 
 // WaitForPipeline waits for the pipeline to complete
@@ -260,23 +260,12 @@ func (lt *LoadTester) MergeErrors(cs ...<-chan error) <-chan error {
 
 // RunLoaderPipeline builds and executes the loader pipeline
 // see: https://medium.com/statuscode/pipeline-patterns-in-go-a37bb3a7e61d
-func (lt *LoadTester) RunLoaderPipeline(done chan bool) error {
-	var (
-		ctx    context.Context
-		cancel context.CancelFunc
-	)
-
+func (lt *LoadTester) RunLoaderPipeline(ctx context.Context) error {
 	if lt.config.AppDuration() > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), lt.config.AppDuration())
-	} else {
-		ctx, cancel = context.WithCancel(context.Background())
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, lt.config.AppDuration())
+		defer cancel()
 	}
-	defer cancel()
-
-	go func() {
-		<-done
-		cancel() // if done, cancels the pipeline
-	}()
 
 	var errcList []<-chan error
 	urlc, errc, err := lt.config.RequestsSource(ctx)
@@ -291,19 +280,12 @@ func (lt *LoadTester) RunLoaderPipeline(done chan bool) error {
 	}
 	errcList = append(errcList, errc)
 
-	errc, err = lt.AppendResults(ctx, resultc)
-	if err != nil {
-		return err
-	}
-	errcList = append(errcList, errc)
-
+	lt.AppendResults(ctx, resultc)
 	err = lt.WaitForPipeline(errcList...)
 
 	if errors.Is(err, context.DeadlineExceeded) {
 		err = nil // DeadlineExceeded is not an error
 	}
-
-	done <- true // we are done!
 
 	return err
 }
