@@ -9,6 +9,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/aclements/go-moremath/stats"
 )
 
 // Results is a list of Result
@@ -100,6 +102,31 @@ func (lt *LoadTester) DumpTimings(w io.Writer) {
 	fmt.Fprintf(w, "%s\n", fmt.Sprintf("Requests/sec: %12.4f", requestsPerSecond))
 }
 
+// DumpDistribution dumps distribution percentiles contained in the Results to the given writer
+func (lt *LoadTester) DumpDistribution(w io.Writer) {
+	n := len(lt.results)
+
+	sample := &stats.Sample{}
+	sample.Xs = make([]float64, n)
+	sample.Weights = make([]float64, n)
+
+	for i := 0; i < n; i++ {
+		timing := lt.results[i].timing.Seconds()
+		sample.Xs = append(sample.Xs, timing)
+		sample.Weights = append(sample.Weights, 1.0)
+	}
+
+	sortedSample := sample.Sort()
+
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("10%% in %12.4f secs", sortedSample.Quantile(0.10)))
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("25%% in %12.4f secs", sortedSample.Quantile(0.25)))
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("50%% in %12.4f secs", sortedSample.Quantile(0.50)))
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("75%% in %12.4f secs", sortedSample.Quantile(0.75)))
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("90%% in %12.4f secs", sortedSample.Quantile(0.90)))
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("95%% in %12.4f secs", sortedSample.Quantile(0.95)))
+	fmt.Fprintf(w, "%s\n", fmt.Sprintf("99%% in %12.4f secs", sortedSample.Quantile(0.99)))
+}
+
 // WriteResults writes the results contained in this LoadTester to the given Writer
 func (lt *LoadTester) WriteResults(w io.Writer) {
 	fmt.Fprintf(w, "\n%s\n\n", "Summary:")
@@ -107,6 +134,9 @@ func (lt *LoadTester) WriteResults(w io.Writer) {
 
 	fmt.Fprintf(w, "\n%s\n\n", "Status code distribution:")
 	lt.DumpStatuses(w)
+
+	fmt.Fprintf(w, "\n%s\n\n", "Request response times:")
+	lt.DumpDistribution(w)
 }
 
 // ProcessRequest is a stage to make a single request, it generates a Result sent to the out channel
