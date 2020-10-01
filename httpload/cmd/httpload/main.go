@@ -12,7 +12,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -377,7 +376,7 @@ func (lt *LoadTester) dumpTimings(w io.Writer) {
 func setupGracefulShutdown(done chan bool) {
 	signalChannel := make(chan os.Signal, 1)
 
-	signal.Notify(signalChannel, syscall.SIGINT, syscall.SIGKILL)
+	signal.Notify(signalChannel, os.Interrupt, os.Kill)
 
 	<-signalChannel
 
