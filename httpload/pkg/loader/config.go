@@ -5,8 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"time"
-
-	"github.com/pkg/errors"
 )
 
 // Config manages the configuration parameters passed on the command line
@@ -45,7 +43,7 @@ func (c *Config) CheckFlags() (err error) {
 }
 
 // Parse parses arguments and saves URL in the config
-func (c *Config) Parse(flags *flag.FlagSet, args []string) (err error) {
+func (c *Config) Parse(flags *flag.FlagSet, args []string) error {
 	flags.Parse(args)
 
 	if flags.NArg() != 1 {
@@ -53,7 +51,7 @@ func (c *Config) Parse(flags *flag.FlagSet, args []string) (err error) {
 	}
 
 	c.url = flags.Arg(0)
-	return err
+	return nil
 }
 
 // RequestsSource is a source for requests, it generates URLs to be processed later
@@ -62,7 +60,7 @@ func (c *Config) RequestsSource(ctx context.Context) (<-chan string, <-chan erro
 	theRequest := c.url
 
 	if theRequest == "" {
-		return nil, nil, errors.Errorf("no URL provided")
+		return nil, nil, fmt.Errorf("no URL provided")
 	}
 
 	out := make(chan string)
