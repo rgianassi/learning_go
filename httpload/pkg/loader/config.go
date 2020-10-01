@@ -56,7 +56,8 @@ func (c *Config) Parse(flags *flag.FlagSet, args []string) (err error) {
 	return err
 }
 
-// RequestSource is a source for requests, it generates URLs to be processed later
+// RequestsSource is a source for requests, it generates URLs to be processed later
+// see: https://medium.com/statuscode/pipeline-patterns-in-go-a37bb3a7e61d
 func (c *Config) RequestsSource(ctx context.Context) (<-chan string, <-chan error, error) {
 	theRequest := c.url
 
