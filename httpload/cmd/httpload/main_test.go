@@ -6,14 +6,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync/atomic"
 	"testing"
 )
 
 func TestNumberOfRequests(t *testing.T) {
-	want := 100
-	counter := 0
+	var want uint64 = 100
+	var counter uint64 = 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		counter++
+		atomic.AddUint64(&counter, 1)
 		w.WriteHeader(200)
 		w.Write([]byte("Success!"))
 	}))
@@ -30,7 +31,7 @@ func TestNumberOfRequests(t *testing.T) {
 
 	trueMain(flags, args)
 
-	if counter != want {
+	if c := atomic.LoadUint64(&counter); c != want {
 		t.Fatal("failed to fulfill requests, want:", want, "got:", counter)
 	}
 }
