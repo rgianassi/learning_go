@@ -111,10 +111,12 @@ func (c *Config) genRequests(ctx context.Context) (<-chan string, <-chan error, 
 // LoadTester represents an instance of the load testing logic
 type LoadTester struct {
 	results Results
+	config  *Config
 }
 
 func newLoadTesterFromConfig(config *Config) LoadTester {
 	loadTester := LoadTester{}
+	loadTester.config = config
 	return loadTester
 }
 
@@ -165,12 +167,12 @@ func (lt *LoadTester) genLoadRequest(ctx context.Context, in <-chan string) (<-c
 	return out, errc, nil
 }
 
-func (lt *LoadTester) genLoadRequests(ctx context.Context, config *Config, in <-chan string) (<-chan Result, <-chan error, error) {
+func (lt *LoadTester) genLoadRequests(ctx context.Context, in <-chan string) (<-chan Result, <-chan error, error) {
 	out := make(chan Result)
 	errc := make(chan error, 1)
 
 	var wg sync.WaitGroup
-	numWorkers := config.nWorkers
+	numWorkers := lt.config.nWorkers
 	wg.Add(numWorkers)
 
 	for i := 0; i < numWorkers; i++ {
@@ -264,14 +266,14 @@ func (lt *LoadTester) mergeErrors(cs ...<-chan error) <-chan error {
 	return out
 }
 
-func (lt *LoadTester) run(config *Config, done chan bool) error {
+func (lt *LoadTester) run(done chan bool) error {
 	var (
 		ctx    context.Context
 		cancel context.CancelFunc
 	)
 
-	if config.appDuration > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), config.appDuration)
+	if lt.config.appDuration > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), lt.config.appDuration)
 	} else {
 		ctx, cancel = context.WithCancel(context.Background())
 	}
@@ -283,13 +285,13 @@ func (lt *LoadTester) run(config *Config, done chan bool) error {
 	}()
 
 	var errcList []<-chan error
-	urlc, errc, err := config.genRequests(ctx)
+	urlc, errc, err := lt.config.genRequests(ctx)
 	if err != nil {
 		return err
 	}
 	errcList = append(errcList, errc)
 
-	resultc, errc, err := lt.genLoadRequests(ctx, config, urlc)
+	resultc, errc, err := lt.genLoadRequests(ctx, urlc)
 	if err != nil {
 		return err
 	}
@@ -404,7 +406,7 @@ func trueMain(flags *flag.FlagSet, args []string) int {
 	loadTester := newLoadTesterFromConfig(config)
 
 	go func() {
-		err := loadTester.run(config, done)
+		err := loadTester.run(done)
 
 		if errors.Is(err, context.DeadlineExceeded) {
 			return
