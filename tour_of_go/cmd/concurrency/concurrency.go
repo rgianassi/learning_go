@@ -209,6 +209,7 @@ func mutexes() {
 	fmt.Println(c.Value("somekey"))
 }
 
+// Fetcher fetcher interface
 type Fetcher interface {
 	// Fetch returns the body of URL and
 	// a slice of URLs found on that page.

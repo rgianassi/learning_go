@@ -11,7 +11,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/rgianassi/learning/go/src/url_shortener/shorten"
+	"github.com/rgianassi/learning/go/url_shortener/shorten"
 )
 
 var (
