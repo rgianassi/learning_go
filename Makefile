@@ -32,10 +32,16 @@ us = url_shortener
 usc = url_shortener/cmd
 hl = httpload
 hlc = httpload/cmd
+
 build: ## Build all
 	go build -v -o build/${us}/http_server			${usc}/http_server/main.go
 	go build -v -o build/${us}/end_to_end_tester	${usc}/end_to_end_tester/main.go
 	go build -v -o build/${hl}/httpload				${hlc}/httpload/main.go
+
+build-race: ## Build all with race flag
+	go build -race -v -o build/${us}/http_server		${usc}/http_server/main.go
+	go build -race -v -o build/${us}/end_to_end_tester	${usc}/end_to_end_tester/main.go
+	go build -race -v -o build/${hl}/httpload			${hlc}/httpload/main.go
 
 clean: ## Clean all
 	rm -rf build
