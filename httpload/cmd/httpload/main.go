@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -9,7 +8,6 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/rgianassi/learning/go/httpload/pkg/loader"
 )
 
@@ -50,10 +48,6 @@ func trueMain(flags *flag.FlagSet, args []string) int {
 
 	go func() {
 		err := loadTester.RunLoaderPipeline(done)
-
-		if errors.Is(err, context.DeadlineExceeded) {
-			return
-		}
 
 		if err != nil {
 			log.Println("main: error during load test. Error:", err)

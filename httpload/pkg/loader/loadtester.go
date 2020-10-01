@@ -2,6 +2,7 @@ package loader
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -297,6 +298,10 @@ func (lt *LoadTester) RunLoaderPipeline(done chan bool) error {
 	errcList = append(errcList, errc)
 
 	err = lt.WaitForPipeline(errcList...)
+
+	if errors.Is(err, context.DeadlineExceeded) {
+		err = nil // DeadlineExceeded is not an error
+	}
 
 	done <- true // we are done!
 
