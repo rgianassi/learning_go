@@ -22,7 +22,7 @@ func NewConfigFromFlags(flags *flag.FlagSet) *Config {
 	flags.IntVar(&config.nWorkers, "w", 50, "number of concurrent workers running")
 	flags.IntVar(&config.nRequests, "n", 200, "number of requests to run")
 	flags.DurationVar(&config.appDuration, "z", 0, "application duration to send requests")
-	flags.IntVar(&config.maxQueriesPerSecondPerWorker, "q", 0, "max number of requests per second to run")
+	flags.IntVar(&config.maxQueriesPerSecondPerWorker, "q", 0, "max number of requests per second per worker to run")
 	return config
 }
 
