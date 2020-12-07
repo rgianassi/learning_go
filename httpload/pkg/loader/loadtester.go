@@ -149,7 +149,19 @@ func (lt *LoadTester) ProcessRequest(ctx context.Context, in <-chan string) (<-c
 		defer close(out)
 		defer close(errc)
 
+		maxQPS := lt.config.MaxQPS()
+		isRateLimiterOn := maxQPS > 0
+		limiterTick := time.Duration(1)
+		if isRateLimiterOn {
+			limiterTick = time.Second / time.Duration(maxQPS)
+		}
+		limiter := time.Tick(limiterTick)
+
 		for url := range in {
+			if isRateLimiterOn {
+				<-limiter
+			}
+
 			req, err := http.NewRequest("GET", url, nil)
 			if err != nil {
 				errc <- err
@@ -193,6 +205,7 @@ func (lt *LoadTester) RunRequestWorkers(ctx context.Context, in <-chan string) (
 	for i := 0; i < numWorkers; i++ {
 		go func() {
 			defer wg.Done()
+
 			resultc, errcr, err := lt.ProcessRequest(ctx, in)
 			if err != nil {
 				errc <- err
