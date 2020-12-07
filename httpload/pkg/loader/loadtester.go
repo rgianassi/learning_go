@@ -149,11 +149,11 @@ func (lt *LoadTester) ProcessRequest(ctx context.Context, in <-chan string) (<-c
 		defer close(out)
 		defer close(errc)
 
-		maxQueries := lt.config.MaxQueriesPerSecondPerWorker()
-		isRateLimiterOn := maxQueries > 0
+		maxQPS := lt.config.MaxQPS()
+		isRateLimiterOn := maxQPS > 0
 		limiterTick := time.Duration(1)
 		if isRateLimiterOn {
-			limiterTick = time.Second / time.Duration(maxQueries)
+			limiterTick = time.Second / time.Duration(maxQPS)
 		}
 		limiter := time.Tick(limiterTick)
 

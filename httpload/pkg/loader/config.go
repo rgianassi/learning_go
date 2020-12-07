@@ -9,11 +9,11 @@ import (
 
 // Config manages the configuration parameters passed on the command line
 type Config struct {
-	nWorkers                     int
-	nRequests                    int
-	appDuration                  time.Duration
-	maxQueriesPerSecondPerWorker int
-	url                          string
+	nWorkers    int
+	nRequests   int
+	appDuration time.Duration
+	maxQPS      int // maxQPS is the maximum number of queries per second
+	url         string
 }
 
 // NewConfigFromFlags constructs a config binding flags to its fields
@@ -22,7 +22,7 @@ func NewConfigFromFlags(flags *flag.FlagSet) *Config {
 	flags.IntVar(&config.nWorkers, "w", 50, "number of concurrent workers running")
 	flags.IntVar(&config.nRequests, "n", 200, "number of requests to run")
 	flags.DurationVar(&config.appDuration, "z", 0, "application duration to send requests")
-	flags.IntVar(&config.maxQueriesPerSecondPerWorker, "q", 0, "max number of requests per second per worker to run")
+	flags.IntVar(&config.maxQPS, "q", 0, "max number of requests per second per worker to run")
 	return config
 }
 
@@ -36,9 +36,9 @@ func (c *Config) AppDuration() time.Duration {
 	return c.appDuration
 }
 
-// MaxQueriesPerSecondPerWorker returns the max number of requests per second per worker
-func (c *Config) MaxQueriesPerSecondPerWorker() int {
-	return c.maxQueriesPerSecondPerWorker
+// MaxQPS returns the max number of requests per second per worker
+func (c *Config) MaxQPS() int {
+	return c.maxQPS
 }
 
 // CheckFlags checks if flags passed to the program are correct

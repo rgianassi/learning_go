@@ -57,9 +57,9 @@ func TestNumberOfRequestsPerSecondPerWorker(t *testing.T) {
 	trueMain(flags, args)
 	elapsed := time.Since(start)
 
-	var maxError time.Duration = 1 * time.Second
-	var wantMin time.Duration = 4 * time.Second
-	var wantMax time.Duration = wantMin + maxError
+	maxError := 1 * time.Second
+	wantMin := 4 * time.Second
+	wantMax := wantMin + maxError
 	elapsedIsBelowMin := (elapsed < wantMin)
 	elapsedIsAboveMax := (elapsed > wantMax)
 	if elapsedIsBelowMin || elapsedIsAboveMax {
