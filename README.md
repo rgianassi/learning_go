@@ -1,2 +1,2 @@
 # learning
-A project to learn using unit testing
+A project to learn Go using unit testing
